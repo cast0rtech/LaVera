@@ -1,8 +1,10 @@
 # ⚡ LaVera - Universal EV Telemetry Hub 🚗📊
 
-Plataforma autohospedada (*self-hosted*), modular y privada basada en **Docker** para la extracción, normalización, almacenamiento en series temporales y visualización avanzada de telemetría para **Vehículos Eléctricos (EV)** multimarca (Tesla, Grupo VAG, Renault, BYD, Hyundai/Kia, Stellantis, OBD-II/BLE, Tronity, etc.).
+🌐 **Language / Idioma:** **English** | [Español](README.es.md)
 
-[![Docker](https://img.shields.io/badge/Docker-Compose_v2-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
+A self-hosted, modular, and privacy-focused **Docker** platform for extracting, normalizing, storing time-series data, and building advanced visualization dashboards for multi-brand **Electric Vehicles (EV)** (Tesla, VAG Group, Renault/Dacia, BYD, Hyundai/Kia, Stellantis, OBD-II/BLE, Tronity, etc.).
+
+[![Docker](https://img.shields.io/badge/Docker-Compose_v2-2496ED?logo=docker&logoColor=white)](ev-telemetry-hub/docker-compose.yml)
 [![Home Assistant](https://img.shields.io/badge/Home_Assistant-Extractor-41BDF5?logo=home-assistant&logoColor=white)](https://www.home-assistant.io/)
 [![InfluxDB](https://img.shields.io/badge/InfluxDB-2.7-22ADF6?logo=influxdb&logoColor=white)](https://www.influxdata.com/)
 [![Node--RED](https://img.shields.io/badge/Node--RED-ETL_Logic-8F0000?logo=node-red&logoColor=white)](https://nodered.org/)
@@ -10,43 +12,43 @@ Plataforma autohospedada (*self-hosted*), modular y privada basada en **Docker**
 
 ---
 
-## 🎯 ¿Qué es LaVera?
+## 🎯 What is LaVera?
 
-**LaVera** proporciona una solución integral para propietarios y entusiastas del vehículo eléctrico que desean:
-1. **Soberanía y Privacidad de Datos:** Mantener el 100% de los datos telemáticos de sus vehículos en su propia infraestructura local (servidor hogareño, Mini PC, Raspberry Pi o NAS), sin depender exclusivamente de servidores de terceros o planes de suscripción de fabricantes.
-2. **Compatibilidad Multimarca:** Recolectar datos telemáticos tanto de APIs oficiales de fabricantes (vía Home Assistant / HACS) como de dongles locales OBD-II por BLE/WiFi.
-3. **Análisis de Series Temporales:** Historial continuo en InfluxDB 2.x de métricas críticas: Estado de Carga (SoC), curvas de potencia de recarga (kW), degradación de batería (SOH), eficiencia energética (kWh/100 km), temperatura del paquete de celdas, odómetro y costes energéticos.
-4. **Visualización en Tiempo Real:** Paneles interactivos y profesionales en Grafana listos para escritorio o dispositivos móviles.
+**LaVera** provides an end-to-end, open-source solution for EV owners and enthusiasts who want:
+1. **Data Sovereignty & Privacy:** Keep 100% of your vehicle telemetry data on your own local infrastructure (home server, Mini PC, Raspberry Pi, or NAS) without third-party vendor lock-in or subscription fees.
+2. **Multi-Brand Compatibility:** Ingest telemetry from official OEM cloud APIs (via Home Assistant & HACS integrations) as well as direct local OBD-II / BLE / CAN dongles.
+3. **Time-Series Analytics:** Long-term historical telemetry stored in InfluxDB 2.x for key metrics: State of Charge (SoC), charging power curves (kW), battery degradation (SOH), energy efficiency (kWh/100 km), pack cell temperatures, odometer, and charging costs.
+4. **Real-Time Dashboards:** Interactive, responsive Grafana panels tailored for desktop and mobile displays.
 
 ---
 
-## 🏗️ Arquitectura del Sistema
+## 🏗️ System Architecture
 
 ```mermaid
 flowchart LR
-    subgraph Vehiculos ["🚗 Fuentes de Telemetría"]
+    subgraph Vehicles ["🚗 Telemetry Sources"]
         EV1["Tesla / VAG / Renault / BYD\n(Cloud APIs / HACS)"]
-        EV2["OBD-II / Dongle BLE\n(Métrico Directo / ESP32)"]
+        EV2["OBD-II / BLE Dongles\n(Direct CAN / ESP32)"]
     end
 
     subgraph Core ["🐳 LaVera Stack (Docker)"]
-        HA["Home Assistant\n(:8123)\nExtractor Multimarca"]
-        NR["Node-RED\n(:1880)\nETL, Normalización & Lógica"]
-        INFLUX["InfluxDB 2.7\n(:8086)\nSeries Temporales"]
-        GRAFANA["Grafana\n(:3000)\nDashboards & Alertas"]
+        HA["Home Assistant\n(:8123)\nMulti-Brand Extractor"]
+        NR["Node-RED\n(:1880)\nETL, Normalization & Logic"]
+        INFLUX["InfluxDB 2.7\n(:8086)\nTime-Series Storage"]
+        GRAFANA["Grafana\n(:3000)\nDashboards & Alerts"]
     end
 
-    subgraph Salidas ["📱 Consumo & Visualización"]
-        DASH["Dashboards Grafana\n(Web & Mobile)"]
-        NOTIF["Alertas Móviles / Telegram\n(Fin de carga, batería baja)"]
+    subgraph Outputs ["📱 Consumption & Visualization"]
+        DASH["Grafana Dashboards\n(Web & Mobile)"]
+        NOTIF["Mobile / Telegram Alerts\n(Charge finished, battery low)"]
     end
 
-    EV1 -->|Poller / Webhooks| HA
+    EV1 -->|Polling / Webhooks| HA
     EV2 -->|MQTT / Bluetooth| HA
-    HA -->|Integración Nativa Influx| INFLUX
-    HA -->|WebSockets / Eventos| NR
-    NR -->|Flux / Escritas filtradas| INFLUX
-    INFLUX -->|Consultas Flux| GRAFANA
+    HA -->|Native InfluxDB Integration| INFLUX
+    HA -->|WebSockets / Events| NR
+    NR -->|Flux / Filtered Writes| INFLUX
+    INFLUX -->|Flux Queries| GRAFANA
     GRAFANA --> DASH
     NR --> NOTIF
     HA --> NOTIF
@@ -54,30 +56,33 @@ flowchart LR
 
 ---
 
-## 🧩 Componentes del Stack
+## 🧩 Stack Components
 
-| Servicio | Contenedor | Puerto Local | Función Principal |
+| Service | Container | Host Port | Primary Role |
 | :--- | :--- | :--- | :--- |
-| **Home Assistant** | `telemetry_ha` | `8123` | Conector multimarca de vehículos, gestión de integraciones oficiales/HACS y lectura de sensores. |
-| **InfluxDB 2.7** | `telemetry_influxdb` | `8086` | Base de datos de series temporales de alto rendimiento para el histórico de telemetría. |
-| **Node-RED** | `telemetry_nodered` | `1880` | Pipeline de automatización, orquestación de eventos, normalización de unidades y cálculo de costes. |
-| **Grafana** | `telemetry_grafana` | `3000` | Motor de visualización analítica, curvas de carga y alertas de estado. |
+| **Home Assistant** | `telemetry_ha` | `8123` | Vehicle connectivity hub, official/HACS vehicle integrations, and sensor poller. |
+| **InfluxDB 2.7** | `telemetry_influxdb` | `8086` | High-performance time-series database for raw and downsampled vehicle metrics. |
+| **Node-RED** | `telemetry_nodered` | `1880` | Flow-based automation, unit normalization, tariff calculations, and ETL pipelines. |
+| **Grafana** | `telemetry_grafana` | `3000` | Analytics visualization engine, charging curve graphs, and automated alerting. |
 
 ---
 
-## 📁 Estructura del Repositorio
+## 📁 Repository Structure
 
 ```text
 LaVera/
-├── .gitignore                      # Exclusiones de Git a nivel raíz (datos locales, .env)
-├── README.md                       # Documento principal del repositorio
-├── GUIA.md                         # Guía exhaustiva de configuración paso a paso
-└── ev-telemetry-hub/               # Despliegue de Docker Compose
-    ├── docker-compose.yml          # Definición de los 4 servicios integrados
-    ├── .env.example                # Plantilla de credenciales y variables de entorno
-    ├── .gitignore                  # Exclusiones de datos persistentes locales
-    ├── README.md                   # Resumen rápido del hub
-    └── data/                       # [Ignorado en Git] Volúmenes persistentes locales
+├── .gitignore                      # Root Git exclusions (local data, .env)
+├── README.md                       # Main English documentation
+├── README.es.md                    # Main Spanish documentation
+├── GUIDE.md                        # Comprehensive step-by-step setup guide (English)
+├── GUIA.md                         # Comprehensive step-by-step setup guide (Spanish)
+└── ev-telemetry-hub/               # Docker Compose deployment files
+    ├── docker-compose.yml          # 4-service stack definition
+    ├── .env.example                # Environment variables template
+    ├── .gitignore                  # Local data ignore rules
+    ├── README.md                   # Hub summary in English
+    ├── README.es.md                # Hub summary in Spanish
+    └── data/                       # [Ignored in Git] Persistent host volumes
         ├── grafana/
         ├── homeassistant/
         ├── influxdb/
@@ -87,89 +92,90 @@ LaVera/
 
 ---
 
-## ⚡ Inicio Rápido (Quickstart)
+## ⚡ Quickstart
 
-### 1. Requisitos
-- [Docker Engine](https://docs.docker.com/engine/install/) (v20.10+) y **Docker Compose v2** (o Docker Desktop en Windows / macOS).
-- Git instalado.
+### 1. Requirements
+- [Docker Engine](https://docs.docker.com/engine/install/) (v20.10+) and **Docker Compose v2** (or Docker Desktop on Windows / macOS).
+- Git.
 
-### 2. Clonar el repositorio
+### 2. Clone the Repository
 ```bash
 git clone https://github.com/cast0rtech/LaVera.git
 cd LaVera/ev-telemetry-hub
 ```
 
-### 3. Configurar variables de entorno
-Copia la plantilla `.env.example` para crear tu propio archivo `.env`:
+### 3. Configure Environment Variables
+Copy the `.env.example` template:
 ```bash
 cp .env.example .env
 ```
-Edita `.env` con tus contraseñas seguras y preferencias:
+Edit `.env` with your secure credentials:
 ```env
 # InfluxDB Auth
 INFLUX_USER=admin
-INFLUX_PASS=TuContrasenaSeguraInflux123!
+INFLUX_PASS=YourSecureInfluxPassword123!
 INFLUX_ORG=EV_Telemetry
 INFLUX_BUCKET=vehicle_data
 
 # Grafana Auth
-GRAFANA_PASS=TuContrasenaSeguraGrafana123!
+GRAFANA_PASS=YourSecureGrafanaPassword123!
 ```
 
-### 4. Iniciar los servicios
+### 4. Start the Stack
 ```bash
 docker compose up -d
 ```
 
-Verifica el estado de los contenedores:
+Verify that all services are healthy:
 ```bash
 docker compose ps
 ```
 
-### 5. Acceso a las Interfaces Web
+### 5. Access the Web Interfaces
 
 - **Home Assistant:** [http://localhost:8123](http://localhost:8123)
-- **Grafana:** [http://localhost:3000](http://localhost:3000) *(Usuario: `admin` / Password: definida en `.env`)*
+- **Grafana:** [http://localhost:3000](http://localhost:3000) *(User: `admin` / Password: set in `.env`)*
 - **Node-RED:** [http://localhost:1880](http://localhost:1880)
-- **InfluxDB:** [http://localhost:8086](http://localhost:8086) *(Login configurado en `.env`)*
+- **InfluxDB:** [http://localhost:8086](http://localhost:8086) *(Login set in `.env`)*
 
 ---
 
-## 📖 Guía Completa de Configuración e Integración
+## 📖 Comprehensive Setup & Integration Guide
 
-Para configurar la telemetría específica de tu coche, conectar Home Assistant con InfluxDB, evitar el drenaje de batería (*vampire drain*) y configurar paneles en Grafana, consulta nuestra guía detallada:
+For configuring brand-specific vehicle integrations, setting up InfluxDB tokens, preventing vampire/phantom drain, and importing Grafana dashboards:
 
-👉 **[Leer la Guía Completa Paso a Paso (GUIA.md)](GUIA.md)**
+👉 **[Read the Complete Step-by-Step Guide (English - GUIDE.md)](GUIDE.md)**  
+👉 **[Leer la Guía Completa Paso a Paso (Español - GUIA.md)](GUIA.md)**
 
-Incluye:
-- Conexión e integración por marcas: Tesla, Renault/Dacia, Volkswagen ID/VAG, BYD, OBD-II/BLE.
-- Creación de Tokens y Buckets en InfluxDB 2.x.
-- Métodos de Ingesta (Home Assistant directo vs Node-RED).
-- Consultas Flux de ejemplo para Grafana (curvas de carga, degradación SOH, costes).
-- Estrategias antidespertar (evitar *Phantom Drain*).
-- Backups y despliegue seguro con HTTPS.
-
----
-
-## 🛡️ Seguridad y Buenas Prácticas
-
-- **Nunca subas tu archivo `.env` a Git:** Contiene contraseñas maestras y tokens. El archivo ya está incluido en [.gitignore](file:///.gitignore).
-- **Control de Peticiones a la API del Coche:** Asegúrate de que las integraciones respeten el modo reposo (*sleep*) del vehículo para evitar consumo parásito de la batería de 12V y del paquete principal.
-- **Acceso Remoto:** Si deseas acceder fuera de tu red local, utiliza túneles cifrados como **Cloudflare Tunnels**, **Tailscale / WireGuard** o un proxy inverso con certificados SSL/TLS automáticos (Nginx / Traefik).
+Highlights:
+- Vehicle integration walk-through: Tesla, Renault/Dacia, VAG/Volkswagen ID, BYD, OBD-II/BLE.
+- InfluxDB 2.x API token generation and bucket retention policies.
+- Ingestion options: Direct Home Assistant configuration vs. Node-RED ETL.
+- Ready-to-use Flux queries for Grafana (charging power, SoC gauges, battery health, costs).
+- Anti-wake and battery protection strategies (preventing *Phantom Drain*).
+- Backups and production SSL/reverse proxy setup.
 
 ---
 
-## 🤝 Contribuciones
+## 🛡️ Security & Best Practices
 
-Las contribuciones, sugerencias de nuevos dashboards y mejoras en las integraciones son bienvenidas:
-1. Haz un Fork del repositorio.
-2. Crea una rama descriptiva (`git checkout -b feature/nueva-integracion`).
-3. Realiza tus cambios y haz commit (`git commit -m 'feat: añadir soporte para X marca'`).
-4. Haz push a tu rama (`git push origin feature/nueva-integracion`).
-5. Abre un **Pull Request**.
+- **Keep `.env` Private:** Contains master credentials and tokens. It is already ignored by `.gitignore`.
+- **Prevent Vampire Drain:** Respect the vehicle's sleep state. Avoid frequent polling when the car is parked and asleep.
+- **Secure Remote Access:** Use encrypted tunnels like **Cloudflare Tunnels**, **Tailscale / WireGuard**, or a reverse proxy with valid TLS/SSL certificates (Nginx / Traefik / Caddy) rather than exposing ports directly.
 
 ---
 
-## 📄 Licencia
+## 🤝 Contributing
 
-Este proyecto se distribuye bajo la licencia MIT. Consulta el archivo de licencia correspondiente para más detalles.
+Contributions, dashboard templates, and integration guides are welcome:
+1. Fork this repository.
+2. Create a feature branch (`git checkout -b feature/new-brand-integration`).
+3. Commit your changes (`git commit -m 'feat: Add support for X brand'`).
+4. Push to your branch (`git push origin feature/new-brand-integration`).
+5. Open a **Pull Request**.
+
+---
+
+## 📄 License
+
+This project is released under the MIT License. See the license file for more details.

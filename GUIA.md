@@ -1,6 +1,8 @@
 # 📘 Guía Exhaustiva de Despliegue, Integración y Operación
 ## LaVera - Universal EV Telemetry Hub ⚡🚗
 
+🌐 **Idioma / Language:** [English (GUIDE.md)](GUIDE.md) | **Español**
+
 Esta guía describe detalladamente la puesta en marcha, integración multimarca de vehículos, ingesta de telemetría en series temporales y construcción de dashboards analíticos utilizando el stack Docker de **LaVera**.
 
 ---

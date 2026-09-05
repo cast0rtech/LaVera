@@ -1,46 +1,48 @@
 # ⚡ Universal EV Telemetry Hub
 
-Módulo de despliegue Docker de **LaVera**, una arquitectura autohospedada para la extracción, normalización y visualización de telemetría de vehículos eléctricos multimarca (Tesla, Grupo VAG, Renault/Dacia, BYD, Hyundai/Kia, OBD-II/BLE, etc.).
+🌐 **Language / Idioma:** **English** | [Español](README.es.md)
 
-> 💡 **Documentación completa:**
-> - [📘 README Principal del Proyecto](../README.md)
-> - [📖 Guía Completa de Configuración Paso a Paso](../GUIA.md)
+Docker deployment module for **LaVera**, a self-hosted architecture for extracting, normalizing, and visualizing multi-brand electric vehicle telemetry (Tesla, VAG Group, Renault/Dacia, BYD, Hyundai/Kia, OBD-II/BLE, etc.).
+
+> 💡 **Complete Documentation:**
+> - [📘 Main Project README](../README.md) | [Español](../README.es.md)
+> - [📖 Step-by-Step Setup Guide](../GUIDE.md) | [Guía en Español](../GUIA.md)
 
 ---
 
-## 🚀 Despliegue Rápido
+## 🚀 Quickstart
 
-1. **Configurar credenciales:**
+1. **Configure credentials:**
    ```bash
    cp .env.example .env
    ```
-   *(Edita el archivo `.env` con tus contraseñas y parámetros).*
+   *(Edit the `.env` file with your secure credentials and parameters).*
 
-2. **Levantar los contenedores:**
+2. **Start the containers:**
    ```bash
    docker compose up -d
    ```
 
-3. **Verificar el estado:**
+3. **Check container status:**
    ```bash
    docker compose ps
    ```
 
-4. **Acceso a los Servicios:**
+4. **Access Web Interfaces:**
    - **Home Assistant:** `http://localhost:8123`
-   - **Grafana:** `http://localhost:3000` *(Usuario: `admin` / Password: en `.env`)*
+   - **Grafana:** `http://localhost:3000` *(User: `admin` / Password: defined in `.env`)*
    - **Node-RED:** `http://localhost:1880`
    - **InfluxDB 2.7:** `http://localhost:8086`
 
 ---
 
-## 📦 Servicios Incluidos
+## 📦 Included Services
 
-| Contenedor | Imagen | Puerto | Descripción |
+| Container | Image | Port | Description |
 | :--- | :--- | :--- | :--- |
-| `telemetry_ha` | `linuxserver/homeassistant` | `8123` | Conexión con vehículos (APIs cloud y dongles) |
-| `telemetry_influxdb` | `influxdb:2.7` | `8086` | Base de datos de series temporales |
-| `telemetry_nodered` | `nodered/node-red` | `1880` | Normalización, flujos ETL y cálculo de costes |
-| `telemetry_grafana` | `grafana/grafana` | `3000` | Dashboards interactivos y analítica |
+| `telemetry_ha` | `linuxserver/homeassistant` | `8123` | Vehicle connectivity (cloud APIs & local dongles) |
+| `telemetry_influxdb` | `influxdb:2.7` | `8086` | High-performance time-series database |
+| `telemetry_nodered` | `nodered/node-red` | `1880` | Flow-based ETL, normalization & tariff logic |
+| `telemetry_grafana` | `grafana/grafana` | `3000` | Real-time analytics and telemetry dashboards |
 
-Para la configuración avanzada de integraciones por vehículo, tokens de InfluxDB y paneles de Grafana, consulta la [Guía Completa (GUIA.md)](../GUIA.md).
+For brand-specific vehicle configurations, InfluxDB tokens, and Grafana panels, see the [Comprehensive Guide (GUIDE.md)](../GUIDE.md).

@@ -1,0 +1,10 @@
+# Ignorar contraseñas y variables de entorno reales
+.env
+
+# Ignorar las bases de datos y configuraciones locales de los contenedores
+data/
+
+# Archivos basura del sistema operativo
+.DS_Store
+Thumbs.db
+*~

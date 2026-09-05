@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # 1. Extractor Multimarca
+  homeassistant:
+    image: lscr.io/linuxserver/homeassistant:latest
+    container_name: telemetry_ha
+    # En Windows/macOS (Docker Desktop) o pruebas locales se usan puertos y bridge:
+    ports:
+      - "8123:8123"
+    # Nota: Si se despliega en Linux nativo para autodescubrimiento mDNS/SSDP de vehículos en LAN, se puede usar: network_mode: host
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Zurich
+    volumes:
+      - ./data/homeassistant:/config
+    restart: unless-stopped
+    networks:
+      - telemetry_net
+
+  # 2. Base de Datos de Series Temporales
+  influxdb:
+    image: influxdb:2.7
+    container_name: telemetry_influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUX_USER}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUX_PASS}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUX_ORG}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUX_BUCKET}
+    volumes:
+      - ./data/influxdb:/var/lib/influxdb2
+      - ./data/influxdb_config:/etc/influxdb2
+    restart: unless-stopped
+    networks:
+      - telemetry_net
+
+  # 3. Procesamiento y Lógica
+  nodered:
+    image: nodered/node-red:latest
+    container_name: telemetry_nodered
+    ports:
+      - "1880:1880"
+    environment:
+      - TZ=Europe/Zurich
+    volumes:
+      - ./data/nodered:/data
+    restart: unless-stopped
+    networks:
+      - telemetry_net
+
+  # 4. Dashboard de Visualización
+  grafana:
+    image: grafana/grafana:latest
+    container_name: telemetry_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS}
+      - TZ=Europe/Zurich
+    volumes:
+      - ./data/grafana:/var/lib/grafana
+    restart: unless-stopped
+    depends_on:
+      - influxdb
+    networks:
+      - telemetry_net
+
+networks:
+  telemetry_net:
+    driver: bridge

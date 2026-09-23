@@ -58,12 +58,25 @@ def main():
     with open(args.file, "r", encoding="utf-8", errors="replace") as f:
         content = f.read()
 
+    from .normalizer import clean_header_key
+
     source = args.source
+    content_stripped = content.strip()
+    is_json = content_stripped.startswith("{") or content_stripped.startswith("[")
+
     if source == "auto":
-        if "tessie" in args.file.lower() or content.startswith("{") or content.startswith("["):
+        if is_json or "tessie" in args.file.lower():
             source = "tessie"
         else:
-            source = "teslafi"
+            first_line = content.splitlines()[0] if content else ""
+            headers = first_line.split(",")
+            cleaned = [clean_header_key(h) for h in headers]
+            is_teslafi = any(k in cleaned for k in [
+                "startrange", "endrange", "rangeused", "chargerate", "maxchargerate",
+                "datecharging", "dateidling", "dateparked", "batteryrange",
+                "timetofullcharge", "rangelost", "batterylost", "sleeptime", "startbattery"
+            ]) or (cleaned and cleaned[0] == "date" and ("duration" in cleaned or "efficiency" in cleaned or "maxrange" in cleaned))
+            source = "teslafi" if is_teslafi else "tessie"
 
     rec_type = args.type
     if rec_type == "auto":

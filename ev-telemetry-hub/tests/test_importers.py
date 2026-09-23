@@ -80,6 +80,64 @@ class TestTeslaImporters(unittest.TestCase):
         self.assertEqual(rec["start_soc"], 90.0)
         self.assertEqual(rec["end_soc"], 82.0)
 
+    def test_tessie_pretty_json_and_epochs(self):
+        from importer.tessie_parser import detect_tessie_type
+        pretty_json = """[
+          {
+            "started_at": "2026-05-12T10:00:00.123+02:00",
+            "ended_at": 1683889200000.0,
+            "distance": 22.4,
+            "distance_unit": "km",
+            "energy_used": 3.6,
+            "starting_battery": 85,
+            "ending_battery": 78
+          }
+        ]"""
+        self.assertEqual(detect_tessie_type(pretty_json), "drives")
+        records = parse_tessie_drives(pretty_json, vin="TESSIE_PRETTY")
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["vin"], "TESSIE_PRETTY")
+        self.assertEqual(records[0]["distance_km"], 22.4)
+        self.assertEqual(records[0]["started_at"], "2026-05-12T08:00:00Z")
+
+    def test_tessie_csv_with_comma_decimals(self):
+        from importer.tessie_parser import detect_tessie_type
+        tessie_csv = """Started,Ended,Duration,Distance,Starting Battery,Ending Battery,Energy Used,Efficiency
+2026-06-01 10:00:00,2026-06-01 10:30:00,1800,"15,4",80,72,"2,8","181,8"
+"""
+        self.assertEqual(detect_tessie_type(tessie_csv), "drives")
+        records = parse_tessie_drives(tessie_csv, vin="TESSIE_CSV")
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["vin"], "TESSIE_CSV")
+        self.assertAlmostEqual(records[0]["distance_km"], 24.78, places=1) # 15.4 miles to km = 24.78 km
+        self.assertEqual(records[0]["energy_kwh"], 2.8)
+        self.assertEqual(records[0]["start_soc"], 80.0)
+        self.assertEqual(records[0]["end_soc"], 72.0)
+
+    def test_tessie_charges_json_and_csv(self):
+        from importer.tessie_parser import detect_tessie_type
+        charge_json = """{
+          "charges": [
+            {
+              "started_at": "2026-06-02T18:00:00Z",
+              "energy_added": 38.5,
+              "starting_battery": 25,
+              "ending_battery": 80,
+              "peak_power": 120.0,
+              "cost": 15.20,
+              "fast_charger": true
+            }
+          ]
+        }"""
+        self.assertEqual(detect_tessie_type(charge_json), "charges")
+        records = parse_tessie_charges(charge_json, vin="TESSIE_CHARGE")
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["energy_added_kwh"], 38.5)
+        self.assertEqual(records[0]["start_soc"], 25.0)
+        self.assertEqual(records[0]["end_soc"], 80.0)
+        self.assertEqual(records[0]["peak_kw"], 120.0)
+        self.assertEqual(records[0]["is_fast_charge"], 1)
+
     def test_writer_sqlite(self):
         import tempfile
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:

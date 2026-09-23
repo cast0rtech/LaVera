@@ -1,8 +1,3 @@
-"""
-LaVera EV Telemetry Hub - Normalization Utilities
-Handles unit conversions, timestamp parsing, and telemetry standardizations.
-"""
-
 from datetime import datetime, timezone
 import re
 from typing import Any, Optional
@@ -36,14 +31,20 @@ def wh_per_mi_to_wh_per_km(wh_mi: float) -> float:
 
 
 def safe_float(val: Any, default: float = 0.0) -> float:
-    """Safely converts string/number to float, handling currencies, % and separators."""
+    """Safely converts string/number to float, handling currencies, %, and European comma decimals."""
     if val is None:
         return default
     if isinstance(val, (int, float)):
         return float(val)
-    s = str(val).strip().replace("$", "").replace("?", "").replace("%", "").replace(",", "")
+    s = str(val).strip().replace("$", "").replace("€", "").replace("%", "")
     if not s or s.lower() in ("null", "none", "nan", "-"):
         return default
+    # Handle European decimal separator vs thousands separator
+    if "," in s and "." not in s:
+        s = s.replace(",", ".")
+    elif "," in s and "." in s:
+        # e.g. "1,234.56"
+        s = s.replace(",", "")
     try:
         return float(s)
     except (ValueError, TypeError):
@@ -64,7 +65,7 @@ def safe_int(val: Any, default: int = 0) -> int:
 
 def parse_timestamp(val: Any) -> Optional[str]:
     """
-    Parses various timestamp formats (ISO8601, TeslaFi, Tessie, Epoch)
+    Parses various timestamp formats (ISO8601 with/without offset & ms, TeslaFi, Tessie, Epoch in sec/ms)
     into standard ISO 8601 UTC string (YYYY-MM-DDTHH:MM:SSZ).
     """
     if val is None:
@@ -73,16 +74,29 @@ def parse_timestamp(val: Any) -> Optional[str]:
     if not s or s.lower() in ("null", "none", ""):
         return None
 
-    # Check Unix epoch (seconds or milliseconds)
-    if re.match(r"^\d{10}(\d{3})?$", s):
-        try:
-            ts = float(s)
-            if len(s) > 10:
-                ts = ts / 1000.0
-            dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+    # Check Unix epoch (seconds, milliseconds, or floats)
+    try:
+        # Check if purely numeric
+        num = float(s)
+        if num > 100000000:
+            if num > 10000000000:
+                num = num / 1000.0
+            dt = datetime.fromtimestamp(num, tz=timezone.utc)
             return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        except Exception:
-            pass
+    except (ValueError, TypeError, OverflowError):
+        pass
+
+    # Try ISO fromisoformat (handles ISO 8601 with microseconds and offsets)
+    try:
+        clean_iso = s.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(clean_iso)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    except Exception:
+        pass
 
     formats = [
         "%Y-%m-%dT%H:%M:%S.%fZ",
@@ -94,7 +108,11 @@ def parse_timestamp(val: Any) -> Optional[str]:
         "%m/%d/%Y %H:%M",
         "%d/%m/%Y %H:%M:%S",
         "%d/%m/%Y %H:%M",
+        "%d-%m-%Y %H:%M:%S",
+        "%d-%m-%Y %H:%M",
         "%Y-%m-%d",
+        "%d/%m/%Y",
+        "%m/%d/%Y",
     ]
 
     for fmt in formats:

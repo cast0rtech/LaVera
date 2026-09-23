@@ -16,6 +16,7 @@ sys.path.insert(0, aio_dir)
 from storage import OfflineStorage
 import app as app_module
 
+
 class TestAllInOneAPI(unittest.TestCase):
 
     @classmethod
@@ -103,6 +104,85 @@ class TestAllInOneAPI(unittest.TestCase):
             self.assertIn("summary", data)
             self.assertIn("drives", data)
             self.assertEqual(len(data["drives"]), 1)
+
+    def test_05_import_tessie_csv(self):
+        csv_content = """Started,Ended,Duration,Distance,Starting Battery,Ending Battery,Energy Used,Efficiency,Starting Temperature,Ending Temperature,Start Location,End Location
+2026-06-16 09:00:00,2026-06-16 09:30:00,1800,15,4,80,72,2,8,160,22,23,Madrid,Toledo
+"""
+        boundary = "----WebKitFormBoundaryTessieCSVTest"
+        body = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file"; filename="tessie_drives.csv"\r\n'
+            f"Content-Type: text/csv\r\n\r\n"
+            f"{csv_content}\r\n"
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="vin"\r\n\r\n'
+            f"TESLA_TESSIE_CSV\r\n"
+            f"--{boundary}--\r\n"
+        ).encode("utf-8")
+
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/api/import",
+            data=body,
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Content-Length": str(len(body))
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode())
+            self.assertEqual(data["status"], "success")
+            self.assertEqual(data["source"], "tessie")
+            self.assertEqual(data["type"], "drives")
+            self.assertEqual(data["records_imported"], 1)
+
+    def test_06_import_tessie_json(self):
+        json_content = json.dumps({
+            "results": [
+                {
+                    "started_at": "2026-06-17T14:00:00.000Z",
+                    "ended_at": "2026-06-17T14:45:00.000Z",
+                    "duration": 2700,
+                    "distance": 35.5,
+                    "starting_battery": 90,
+                    "ending_battery": 78,
+                    "energy_used": 6.8,
+                    "efficiency": 185
+                }
+            ]
+        }, indent=2)
+
+        boundary = "----WebKitFormBoundaryTessieJSONTest"
+        body = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file"; filename="tessie_export.json"\r\n'
+            f"Content-Type: application/json\r\n\r\n"
+            f"{json_content}\r\n"
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="vin"\r\n\r\n'
+            f"TESLA_TESSIE_JSON\r\n"
+            f"--{boundary}--\r\n"
+        ).encode("utf-8")
+
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/api/import",
+            data=body,
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Content-Length": str(len(body))
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode())
+            self.assertEqual(data["status"], "success")
+            self.assertEqual(data["source"], "tessie")
+            self.assertEqual(data["type"], "drives")
+            self.assertEqual(data["records_imported"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

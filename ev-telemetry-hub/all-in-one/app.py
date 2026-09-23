@@ -24,7 +24,7 @@ if parent_dir not in sys.path:
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from importer.normalizer import parse_timestamp
+from importer.normalizer import parse_timestamp, clean_header_key
 from importer.teslafi_parser import (
     detect_teslafi_type,
     parse_teslafi_drives,
@@ -179,39 +179,78 @@ class LaVeraRequestHandler(SimpleHTTPRequestHandler):
 
                 # Auto-detect source & type
                 is_json = content_str.strip().startswith("{") or content_str.strip().startswith("[")
-                source = "tessie" if is_json or "tessie" in content_str[:200].lower() else "teslafi"
-
                 imported_count = 0
                 detected_type = "unknown"
 
-                if source == "tessie":
+                if is_json:
+                    source = "tessie"
                     detected_type = detect_tessie_type(content_str)
-                    if detected_type == "drives":
-                        recs = parse_tessie_drives(content_str, vin=vin)
-                        imported_count = storage.writer.write_drives(recs)
-                    elif detected_type == "charges":
+                    if detected_type == "charges":
                         recs = parse_tessie_charges(content_str, vin=vin)
                         imported_count = storage.writer.write_charges(recs)
                     elif detected_type == "battery":
                         recs = parse_tessie_battery_health(content_str, vin=vin)
                         imported_count = storage.writer.write_battery_health(recs)
+                    else:
+                        recs = parse_tessie_drives(content_str, vin=vin)
+                        imported_count = storage.writer.write_drives(recs)
+                        if imported_count > 0:
+                            detected_type = "drives"
+                        else:
+                            recs = parse_tessie_charges(content_str, vin=vin)
+                            imported_count = storage.writer.write_charges(recs)
+                            if imported_count > 0:
+                                detected_type = "charges"
+                            else:
+                                recs = parse_tessie_battery_health(content_str, vin=vin)
+                                imported_count = storage.writer.write_battery_health(recs)
+                                if imported_count > 0:
+                                    detected_type = "battery"
                 else:
                     first_line = content_str.splitlines()[0] if content_str else ""
                     headers = first_line.split(",")
-                    detected_type = detect_teslafi_type(headers)
+                    cleaned_headers = [clean_header_key(h) for h in headers]
+                    is_teslafi = any(k in cleaned_headers for k in [
+                        "startrange", "endrange", "rangeused", "chargerate", "maxchargerate",
+                        "datecharging", "dateidling", "dateparked", "batteryrange",
+                        "timetofullcharge", "rangelost", "batterylost", "sleeptime", "startbattery"
+                    ]) or (cleaned_headers and cleaned_headers[0] == "date" and ("duration" in cleaned_headers or "efficiency" in cleaned_headers or "maxrange" in cleaned_headers))
 
-                    if detected_type == "drives":
-                        recs = parse_teslafi_drives(content_str, vin=vin)
-                        imported_count = storage.writer.write_drives(recs)
-                    elif detected_type == "charges":
-                        recs = parse_teslafi_charges(content_str, vin=vin)
-                        imported_count = storage.writer.write_charges(recs)
-                    elif detected_type == "battery":
-                        recs = parse_teslafi_battery_report(content_str, vin=vin)
-                        imported_count = storage.writer.write_battery_health(recs)
-                    elif detected_type == "idles":
-                        recs = parse_teslafi_idles(content_str, vin=vin)
-                        imported_count = storage.writer.write_idles(recs)
+                    if is_teslafi:
+                        source = "teslafi"
+                        detected_type = detect_teslafi_type(headers)
+                        if detected_type == "charges":
+                            recs = parse_teslafi_charges(content_str, vin=vin)
+                            imported_count = storage.writer.write_charges(recs)
+                        elif detected_type == "battery":
+                            recs = parse_teslafi_battery_report(content_str, vin=vin)
+                            imported_count = storage.writer.write_battery_health(recs)
+                        elif detected_type == "idles":
+                            recs = parse_teslafi_idles(content_str, vin=vin)
+                            imported_count = storage.writer.write_idles(recs)
+                        else:
+                            recs = parse_teslafi_drives(content_str, vin=vin)
+                            imported_count = storage.writer.write_drives(recs)
+                            detected_type = "drives"
+                    else:
+                        source = "tessie"
+                        detected_type = detect_tessie_type(content_str)
+                        if detected_type == "charges":
+                            recs = parse_tessie_charges(content_str, vin=vin)
+                            imported_count = storage.writer.write_charges(recs)
+                        elif detected_type == "battery":
+                            recs = parse_tessie_battery_health(content_str, vin=vin)
+                            imported_count = storage.writer.write_battery_health(recs)
+                        else:
+                            recs = parse_tessie_drives(content_str, vin=vin)
+                            imported_count = storage.writer.write_drives(recs)
+                            if imported_count > 0:
+                                detected_type = "drives"
+                            else:
+                                recs = parse_tessie_charges(content_str, vin=vin)
+                                imported_count = storage.writer.write_charges(recs)
+                                if imported_count > 0:
+                                    detected_type = "charges"
 
                 self._send_json({
                     "status": "success",

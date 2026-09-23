@@ -161,7 +161,46 @@ class OfflineStorage:
             conn.close()
 
     def insert_live_telemetry(self, data: Dict[str, Any]) -> int:
+        # Flexible key extraction supporting standard, Tessie, ScanMyTesla, and OBD
+        vin = data.get("vin") or data.get("vehicle_id") or data.get("car_id") or "DEFAULT"
+        timestamp = data.get("timestamp") or data.get("time") or data.get("date")
+        
+        # State of Charge (%)
+        soc = data.get("soc")
+        if soc is None:
+            soc = data.get("battery_level") or data.get("state_of_charge") or data.get("usable_battery_level")
+        
+        # Speed (km/h)
+        speed = data.get("speed_kmh")
+        if speed is None:
+            speed = data.get("speed")
+            # If in mph, convert
+            if data.get("speed_mph"):
+                speed = float(data.get("speed_mph")) * 1.60934
+        
+        # Power (kW)
+        power = data.get("power_kw")
+        if power is None:
+            power = data.get("power")
+        
+        # Battery Temperature (C)
+        bat_temp = data.get("battery_temp_c")
+        if bat_temp is None:
+            bat_temp = data.get("battery_temp") or data.get("temp_battery")
+        
+        # Odometer (km)
+        odo = data.get("odometer_km")
+        if odo is None:
+            odo = data.get("odometer")
+            if data.get("odometer_mi"):
+                odo = float(data.get("odometer_mi")) * 1.60934
+        
+        charging_state = data.get("charging_state") or ("CHARGING" if data.get("is_charging") else "STANDBY")
+        lat = data.get("latitude") or data.get("lat")
+        lon = data.get("longitude") or data.get("lon") or data.get("lng")
+
         conn = self._get_conn()
+        row_id = 0
         try:
             cur = conn.cursor()
             cur.execute("""
@@ -170,22 +209,56 @@ class OfflineStorage:
                     odometer_km, charging_state, latitude, longitude, raw_json
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                data.get("vin", "DEFAULT"),
-                data.get("timestamp"),
-                data.get("soc"),
-                data.get("speed_kmh"),
-                data.get("power_kw"),
-                data.get("battery_temp_c"),
-                data.get("odometer_km"),
-                data.get("charging_state", "STANDBY"),
-                data.get("latitude"),
-                data.get("longitude"),
+                vin,
+                timestamp,
+                float(soc) if soc is not None else None,
+                float(speed) if speed is not None else None,
+                float(power) if power is not None else None,
+                float(bat_temp) if bat_temp is not None else None,
+                float(odo) if odo is not None else None,
+                str(charging_state),
+                float(lat) if lat is not None else None,
+                float(lon) if lon is not None else None,
                 json.dumps(data)
             ))
             conn.commit()
-            return cur.lastrowid
+            row_id = cur.lastrowid
         finally:
             conn.close()
+
+        # Also write to TimescaleDB if connected
+        if hasattr(self.writer, "pg_conn") and self.writer.pg_conn:
+            try:
+                pg_cur = self.writer.pg_conn.cursor()
+                pg_cur.execute("""
+                    INSERT INTO telemetry (
+                        time, vin, provider, speed_kmh, soc_percent, power_kw,
+                        odometer_km, battery_temp_c, latitude, longitude,
+                        is_charging, is_driving, raw_payload
+                    ) VALUES (
+                        COALESCE(%s::timestamptz, NOW()), %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s
+                    )
+                """, (
+                    timestamp,
+                    vin,
+                    data.get("provider", "direct_live"),
+                    float(speed) if speed is not None else None,
+                    float(soc) if soc is not None else None,
+                    float(power) if power is not None else None,
+                    float(odo) if odo is not None else None,
+                    float(bat_temp) if bat_temp is not None else None,
+                    float(lat) if lat is not None else None,
+                    float(lon) if lon is not None else None,
+                    charging_state in ("Charging", "CHARGING", True),
+                    (float(speed) > 0) if speed is not None else False,
+                    json.dumps(data)
+                ))
+                pg_cur.close()
+            except Exception:
+                pass
+
+        return row_id
 
     def export_all_json(self, vin: Optional[str] = None) -> Dict[str, Any]:
         return {

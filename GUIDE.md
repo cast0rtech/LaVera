@@ -15,7 +15,7 @@ This guide provides step-by-step instructions for deploying, integrating multi-b
 4. [Step 1: Vehicle Telemetry Extraction with Home Assistant](#4-step-1-vehicle-telemetry-extraction-with-home-assistant)
    - [4b. Importing Tesla Historical Telemetry (Tessie & TeslaFi)](#4b-importing-tesla-historical-telemetry-tessie--teslafi)
 4. [Step 1: Vehicle Telemetry Extraction with Home Assistant](#4-step-1-vehicle-telemetry-extraction-with-home-assistant)
-5. [Step 2: InfluxDB 2.7 Configuration (Buckets & Tokens)](#5-step-2-influxdb-27-configuration-buckets--tokens)
+5. [Step 2: TimescaleDB (PostgreSQL 16) Configuration](#5-step-2-timescaledb-postgresql-16-configuration)
 6. [Step 3: Telemetry Ingestion (Direct vs. Node-RED ETL)](#6-step-3-telemetry-ingestion-direct-vs-node-red-etl)
 7. [Step 4: Analytical Dashboards in Grafana](#7-step-4-analytical-dashboards-in-grafana)
 8. [Step 5: Mitigating Vampire Drain (Parasitic Battery Draw)](#8-step-5-mitigating-vampire-drain-parasitic-battery-draw)
@@ -28,7 +28,7 @@ This guide provides step-by-step instructions for deploying, integrating multi-b
 
 The system operates on a modular data pipeline:
 1. **Extraction:** Home Assistant serves as a multi-brand gateway, connecting to OEM cloud APIs (Tesla Fleet, Renault Gigya, VAG We Connect, BYD, etc.) or local OBD-II hardware dongles.
-2. **Time-Series Storage:** InfluxDB records high-precision metrics (timestamps, values, and contextual tags) with configurable data retention and downsampling.
+2. **Time-Series Storage:** TimescaleDB (PostgreSQL 16) records high-precision time-series metrics with automated partitioning (hypertables) and full standard SQL query support.
 3. **ETL & Orchestration:** Node-RED handles complex data transformations, unit normalization (Wh to kWh), and merges telemetry with electricity rates (e.g., dynamic hourly pricing) for session cost calculation.
 4. **Visualization & Alerting:** Grafana queries InfluxDB via Flux or InfluxQL to render responsive dashboards and trigger notifications.
 
@@ -342,7 +342,7 @@ If you want to preprocess data (convert units, classify charge sessions by elect
 1. Open Grafana at: **`http://<YOUR-SERVER-IP>:3000`**.
 2. Log in with user `admin` and your `GRAFANA_PASS`.
 
-### 7.1 Add the InfluxDB Data Source
+### 7.1 TimescaleDB Data Source (Pre-configured)
 1. Navigate to **Connections** > **Data sources** > **Add data source**.
 2. Select **InfluxDB**.
 3. Configure the settings:
@@ -441,7 +441,7 @@ tar -czvf "backup_lavera_$(date +%Y%m%d_%H%M%S).tar.gz" data/ .env
 docker compose start
 ```
 
-### 9.2 InfluxDB Hot Backup
+### 9.2 TimescaleDB Backup (pg_dump)
 To back up InfluxDB while it remains running:
 ```bash
 docker exec -it telemetry_influxdb influx backup /var/lib/influxdb2/backup -t "YOUR_INFLUX_TOKEN"

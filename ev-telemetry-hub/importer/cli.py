@@ -1,8 +1,10 @@
 """
 CLI Tool for Importing TeslaFi & Tessie Data into LaVera Hub.
+Supports SQLite (local offline), TimescaleDB (PostgreSQL 16), and InfluxDB.
+
 Usage:
   python -m importer.cli --source teslafi --file drives.csv --vin MY_TESLA
-  python -m importer.cli --source tessie --file export.json --vin MY_TESLA
+  python -m importer.cli --source tessie --file export.json --vin MY_TESLA --timescale-host localhost
 """
 
 import argparse
@@ -33,6 +35,15 @@ def main():
     parser.add_argument("--file", required=True, help="Path to CSV or JSON file to import")
     parser.add_argument("--vin", default="TESLA_MODEL", help="Vehicle VIN or Identifier")
     parser.add_argument("--db", default="data/lavera.db", help="Path to local SQLite database")
+    
+    # TimescaleDB / PostgreSQL parameters
+    parser.add_argument("--timescale-host", default=os.getenv("POSTGRES_HOST"), help="TimescaleDB / PostgreSQL Host")
+    parser.add_argument("--timescale-port", type=int, default=int(os.getenv("POSTGRES_PORT", "5432")), help="TimescaleDB Port")
+    parser.add_argument("--timescale-user", default=os.getenv("POSTGRES_USER", "lavera"), help="TimescaleDB User")
+    parser.add_argument("--timescale-password", default=os.getenv("POSTGRES_PASSWORD", "LaVeraSecurePass2026!"), help="TimescaleDB Password")
+    parser.add_argument("--timescale-db", default=os.getenv("POSTGRES_DB", "lavera_telemetry"), help="TimescaleDB Database")
+
+    # InfluxDB legacy parameters (optional)
     parser.add_argument("--influx-url", default=os.getenv("INFLUX_URL"), help="InfluxDB URL (optional)")
     parser.add_argument("--influx-token", default=os.getenv("INFLUX_TOKEN"), help="InfluxDB API Token")
     parser.add_argument("--influx-org", default=os.getenv("INFLUX_ORG", "lavera"), help="InfluxDB Org")
@@ -66,6 +77,11 @@ def main():
 
     writer = TelemetryWriter(
         db_path=args.db,
+        timescale_host=args.timescale_host,
+        timescale_port=args.timescale_port,
+        timescale_user=args.timescale_user,
+        timescale_password=args.timescale_password,
+        timescale_db=args.timescale_db,
         influx_url=args.influx_url,
         influx_token=args.influx_token,
         influx_org=args.influx_org,

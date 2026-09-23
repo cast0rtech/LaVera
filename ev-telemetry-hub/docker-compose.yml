@@ -17,35 +17,31 @@ services:
     networks:
       - telemetry_net
 
-  # 2. Base de Datos de Series Temporales (InfluxDB 2.7)
-  influxdb:
-    image: influxdb:2.7
-    container_name: telemetry_influxdb
+  # 2. Base de Datos de Series Temporales (TimescaleDB / PostgreSQL 16)
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: telemetry_timescale
     ports:
-      - "8086:8086"
+      - "5432:5432"
     environment:
-      - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=admin
-      - DOCKER_INFLUXDB_INIT_PASSWORD=LaVeraSecurePass2026!
-      - DOCKER_INFLUXDB_INIT_ORG=EV_Telemetry
-      - DOCKER_INFLUXDB_INIT_BUCKET=vehicle_data
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=lavera_master_token_2026_super_secure
-      - DOCKER_INFLUXDB_INIT_RETENTION=0
+      - POSTGRES_USER=lavera
+      - POSTGRES_PASSWORD=LaVeraSecurePass2026!
+      - POSTGRES_DB=lavera_telemetry
+      - TZ=Europe/Zurich
     volumes:
-      # Named volume avoids Windows NTFS flock/BoltDB file locking crashes
-      - influxdb_data:/var/lib/influxdb2
-      - influxdb_config:/etc/influxdb2
+      - timescale_data:/var/lib/postgresql/data
+      - ./sql/init-timescaledb.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8086/ping"]
+      test: ["CMD-SHELL", "pg_isready -U lavera -d lavera_telemetry"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 15s
+      start_period: 10s
     restart: always
     networks:
       - telemetry_net
 
-  # 3. Procesamiento y L?gica
+  # 3. Procesamiento y Logica
   nodered:
     image: nodered/node-red:latest
     container_name: telemetry_nodered
@@ -59,7 +55,7 @@ services:
     networks:
       - telemetry_net
 
-  # 4. Dashboard de Visualizaci?n
+  # 4. Dashboard de Visualizacion
   grafana:
     image: grafana/grafana:latest
     container_name: telemetry_grafana
@@ -70,9 +66,10 @@ services:
       - TZ=Europe/Zurich
     volumes:
       - ./data/grafana:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
     restart: always
     depends_on:
-      influxdb:
+      timescaledb:
         condition: service_healthy
     networks:
       - telemetry_net
@@ -82,5 +79,4 @@ networks:
     driver: bridge
 
 volumes:
-  influxdb_data:
-  influxdb_config:
+  timescale_data:

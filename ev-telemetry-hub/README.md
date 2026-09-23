@@ -24,8 +24,8 @@ A single, lightweight, self-contained container with zero external CDN dependenc
   ```
 - **Access Dashboard:** `http://localhost:8080` (or `http://lavera.local:8080` on Raspberry Pi).
 
-### Option B: Distributed Modular Stack (Home Assistant + InfluxDB + Node-RED + Grafana)
-The complete multi-container setup with enterprise InfluxDB 2.7, Home Assistant multi-brand extractor, Node-RED ETL, and Grafana dashboards.
+### Option B: Distributed Modular Stack (Home Assistant + TimescaleDB + Node-RED + Grafana)
+The complete multi-container setup with enterprise TimescaleDB 2.7, Home Assistant multi-brand extractor, Node-RED ETL, and Grafana dashboards.
 
 1. **Configure credentials:**
    ```bash
@@ -39,7 +39,7 @@ The complete multi-container setup with enterprise InfluxDB 2.7, Home Assistant 
    - **Home Assistant:** `http://localhost:8123`
    - **Grafana:** `http://localhost:3000` *(User: `admin` / Password: in `.env`)*
    - **Node-RED:** `http://localhost:1880`
-   - **InfluxDB 2.7:** `http://localhost:8086`
+   - **TimescaleDB 2.7:** `http://localhost:5432`
 
 ---
 
@@ -65,8 +65,8 @@ python -m importer.cli --source tessie --file /path/to/tessie_export.json --vin 
 
 | Mode | Container | Port | Architecture | Storage |
 | :--- | :--- | :--- | :--- | :--- |
-| **All-in-One** | `lavera_hub` | `8080` | `amd64`, `arm64`, `arm/v7` | Local SQLite + InfluxDB Sync |
+| **All-in-One** | `lavera_hub` | `8080` | `amd64`, `arm64`, `arm/v7` | Local SQLite + TimescaleDB Sync |
 | **Distributed** | `telemetry_ha` | `8123` | `amd64`, `arm64` | Local config volume |
-| **Distributed** | `telemetry_influxdb` | `8086` | `amd64`, `arm64` | InfluxDB 2.7 Persistent Engine |
+| **Distributed** | `telemetry_influxdb` | `8086` | `amd64`, `arm64` | TimescaleDB 2.7 Persistent Engine |
 | **Distributed** | `telemetry_nodered` | `1880` | `amd64`, `arm64`, `arm/v7` | Node-RED flow data |
 | **Distributed** | `telemetry_grafana` | `3000` | `amd64`, `arm64`, `arm/v7` | Grafana data & dashboards |

@@ -16,28 +16,25 @@ services:
     networks:
       - telemetry_net
 
-  influxdb:
-    image: influxdb:2.7
-    container_name: telemetry_influxdb
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: telemetry_timescale
     ports:
-      - "8086:8086"
+      - "5432:5432"
     environment:
-      - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=admin
-      - DOCKER_INFLUXDB_INIT_PASSWORD=LaVeraSecurePass2026!
-      - DOCKER_INFLUXDB_INIT_ORG=EV_Telemetry
-      - DOCKER_INFLUXDB_INIT_BUCKET=vehicle_data
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=lavera_master_token_2026_super_secure
-      - DOCKER_INFLUXDB_INIT_RETENTION=0
+      - POSTGRES_USER=lavera
+      - POSTGRES_PASSWORD=LaVeraSecurePass2026!
+      - POSTGRES_DB=lavera_telemetry
+      - TZ=Europe/Zurich
     volumes:
-      - influxdb_data:/var/lib/influxdb2
-      - influxdb_config:/etc/influxdb2
+      - timescale_data:/var/lib/postgresql/data
+      - ./ev-telemetry-hub/sql/init-timescaledb.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8086/ping"]
+      test: ["CMD-SHELL", "pg_isready -U lavera -d lavera_telemetry"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 15s
+      start_period: 10s
     restart: always
     networks:
       - telemetry_net
@@ -65,9 +62,10 @@ services:
       - TZ=Europe/Zurich
     volumes:
       - ./ev-telemetry-hub/data/grafana:/var/lib/grafana
+      - ./ev-telemetry-hub/grafana/provisioning:/etc/grafana/provisioning:ro
     restart: always
     depends_on:
-      influxdb:
+      timescaledb:
         condition: service_healthy
     networks:
       - telemetry_net
@@ -77,5 +75,4 @@ networks:
     driver: bridge
 
 volumes:
-  influxdb_data:
-  influxdb_config:
+  timescale_data:

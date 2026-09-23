@@ -1,0 +1,19 @@
+apiVersion: 1
+
+datasources:
+  - name: TimescaleDB
+    type: postgres
+    access: proxy
+    url: timescaledb:5432
+    user: lavera
+    isDefault: true
+    secureJsonData:
+      password: "LaVeraSecurePass2026!"
+    jsonData:
+      database: lavera_telemetry
+      sslmode: disable
+      timescaledb: true
+      maxOpenConns: 10
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+      postgresVersion: 1600

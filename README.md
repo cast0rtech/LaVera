@@ -8,7 +8,7 @@ A self-hosted, modular, and privacy-focused platform for extracting, normalizing
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry_Pi-3_%7C_4_%7C_5-C51A4A?logo=raspberry-pi&logoColor=white)](scripts/build-arm-image.sh)
 [![Offline Ready](https://img.shields.io/badge/Mode-100%25_Offline-00E676)](ev-telemetry-hub/all-in-one/)
 [![Tesla Importer](https://img.shields.io/badge/Tesla-Tessie_%7C_TeslaFi-E82127?logo=tesla&logoColor=white)](ev-telemetry-hub/importer/)
-[![InfluxDB](https://img.shields.io/badge/InfluxDB-2.7-22ADF6?logo=influxdb&logoColor=white)](https://www.influxdata.com/)
+[![TimescaleDB](https://img.shields.io/badge/TimescaleDB-PostgreSQL_16-FDB515?logo=postgresql&logoColor=white)](https://www.timescale.com/)
 [![Grafana](https://img.shields.io/badge/Grafana-Dashboards-F46800?logo=grafana&logoColor=white)](https://grafana.com/)
 
 ---
@@ -44,7 +44,7 @@ OBD-II / BLE Dongles / ESP32 CAN"]
         AllInOne["All-in-One Offline Container (:8080)
 (Embedded API + Local SQLite + Canvas Charts)"]
         ModStack["Distributed Modular Stack
-(HA :8123 + InfluxDB :8086 + Node-RED :1880 + Grafana :3000)"]
+(HA :8123 + TimescaleDB :5432 + Node-RED :1880 + Grafana :3000)"]
     end
 
     subgraph Targets ["??? Deployment Platforms"]
@@ -75,7 +75,7 @@ LaVera offers two deployment options:
 A single lightweight, zero-configuration Docker container containing:
 - Built-in embedded web dashboard (zero CDN, 100% offline).
 - Built-in Tesla historical importer (drag & drop for Tessie & TeslaFi).
-- Local persistent time-series SQLite storage with optional InfluxDB syncing.
+- Local persistent time-series SQLite storage with optional TimescaleDB (PostgreSQL) syncing.
 - Multi-arch support: `linux/amd64`, `linux/arm64`, `linux/arm/v7`.
 
 ```bash
@@ -84,7 +84,7 @@ docker compose -f docker-compose.all-in-one.yml up -d
 ```
 Open your browser at `http://localhost:8080` (or `http://lavera.local:8080` on Raspberry Pi).
 
-### 2. Distributed Modular Stack (Home Assistant + InfluxDB + Node-RED + Grafana)
+### 2. Distributed Modular Stack (Home Assistant + TimescaleDB + Node-RED + Grafana)
 Full multi-service environment for multi-brand cloud polling and enterprise Grafana analytics.
 
 ```bash
@@ -95,7 +95,7 @@ docker compose up -d
 - **Home Assistant:** `http://localhost:8123`
 - **Grafana:** `http://localhost:3000`
 - **Node-RED:** `http://localhost:1880`
-- **InfluxDB 2.7:** `http://localhost:8086`
+- **TimescaleDB (PostgreSQL 16):** `localhost:5432` (User: `lavera`, DB: `lavera_telemetry`)
 
 ---
 
@@ -190,7 +190,7 @@ LaVera/
 
 ## ?? Comprehensive Setup & Integration Guide
 
-For configuring brand-specific vehicle integrations, setting up InfluxDB tokens, preventing vampire/phantom drain, and importing Grafana dashboards:
+For configuring brand-specific vehicle integrations, configuring TimescaleDB hypertables, preventing vampire/phantom drain, and importing Grafana dashboards:
 
 ?? **[Read the Complete Step-by-Step Guide (English - GUIDE.md)](GUIDE.md)**  
 ?? **[Leer la Gu?a Completa Paso a Paso (Espa?ol - GUIA.md)](GUIA.md)**

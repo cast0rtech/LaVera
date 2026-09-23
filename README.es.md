@@ -8,7 +8,7 @@ Plataforma auto-hospedada, modular y enfocada en la privacidad para la extracci?
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry_Pi-3_%7C_4_%7C_5-C51A4A?logo=raspberry-pi&logoColor=white)](scripts/build-arm-image.sh)
 [![Modo Offline](https://img.shields.io/badge/Modo-100%25_Offline-00E676)](ev-telemetry-hub/all-in-one/)
 [![Importador Tesla](https://img.shields.io/badge/Tesla-Tessie_%7C_TeslaFi-E82127?logo=tesla&logoColor=white)](ev-telemetry-hub/importer/)
-[![InfluxDB](https://img.shields.io/badge/InfluxDB-2.7-22ADF6?logo=influxdb&logoColor=white)](https://www.influxdata.com/)
+[![TimescaleDB](https://img.shields.io/badge/TimescaleDB-PostgreSQL_16-FDB515?logo=postgresql&logoColor=white)](https://www.timescale.com/)
 [![Grafana](https://img.shields.io/badge/Grafana-Dashboards-F46800?logo=grafana&logoColor=white)](https://grafana.com/)
 
 ---
@@ -44,7 +44,7 @@ Adaptadores OBD-II / BLE / ESP32 CAN"]
         AllInOne["Contenedor All-in-One Offline (:8080)
 (API Embebida + SQLite Local + Gr?ficos Canvas)"]
         ModStack["Stack Modular Distribuido
-(HA :8123 + InfluxDB :8086 + Node-RED :1880 + Grafana :3000)"]
+(HA :8123 + TimescaleDB :5432 + Node-RED :1880 + Grafana :3000)"]
     end
 
     subgraph Targets ["??? Plataformas de Despliegue"]
@@ -95,7 +95,7 @@ docker compose up -d
 - **Home Assistant:** `http://localhost:8123`
 - **Grafana:** `http://localhost:3000`
 - **Node-RED:** `http://localhost:1880`
-- **InfluxDB 2.7:** `http://localhost:8086`
+- **TimescaleDB (PostgreSQL 16):** `localhost:5432` (Usuario: `lavera`, BD: `lavera_telemetry`)
 
 ---
 

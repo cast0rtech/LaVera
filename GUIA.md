@@ -12,7 +12,7 @@ Esta guía describe detalladamente la puesta en marcha, integración multimarca 
 2. [Requisitos Previos y Entorno](#2-requisitos-previos-y-entorno)
 3. [Instalación y Despliegue del Stack](#3-instalación-y-despliegue-del-stack)
 4. [Paso 1: Extracción de Telemetría con Home Assistant](#4-paso-1-extracción-de-telemetría-con-home-assistant)
-5. [Paso 2: Configuración de InfluxDB 2.7 (Buckets y Tokens)](#5-paso-2-configuración-de-influxdb-27-buckets-y-tokens)
+5. [Paso 2: Configuración de TimescaleDB (PostgreSQL 16)](#5-paso-2-configuración-de-timescaledb-postgresql-16)
 6. [Paso 3: Ingesta de Telemetría (Directa o vía Node-RED)](#6-paso-3-ingesta-de-telemetría-directa-o-vía-node-red)
 7. [Paso 4: Dashboards y Métricas en Grafana](#7-paso-4-dashboards-y-métricas-en-grafana)
 8. [Paso 5: Mitigación del Vampire Drain (Consumo Parásito)](#8-paso-5-mitigación-del-v?ampire-drain-consumo-parásito)

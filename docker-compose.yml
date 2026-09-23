@@ -3,8 +3,8 @@ version: '3.8'
 services:
   lavera-hub:
     build:
-      context: ./ev-telemetry-hub
-      dockerfile: Dockerfile.all-in-one
+      context: .
+      dockerfile: Dockerfile
     image: lavera-hub:all-in-one
     container_name: lavera_hub
     ports:

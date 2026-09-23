@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  lavera-hub:
+    build:
+      context: ./ev-telemetry-hub
+      dockerfile: Dockerfile.all-in-one
+    image: lavera-hub:all-in-one
+    container_name: lavera_hub
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - TZ=Europe/Zurich
+      - PORT=8080
+      - LAVERA_DB_PATH=/app/data/lavera.db
+      - INFLUX_URL=${INFLUX_URL:-}
+      - INFLUX_TOKEN=${INFLUX_TOKEN:-}
+      - INFLUX_ORG=${INFLUX_ORG:-lavera}
+      - INFLUX_BUCKET=${INFLUX_BUCKET:-telemetry}
+    volumes:
+      - ./ev-telemetry-hub/data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

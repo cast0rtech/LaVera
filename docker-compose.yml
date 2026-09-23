@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  homeassistant:
+    image: lscr.io/linuxserver/homeassistant:latest
+    container_name: telemetry_ha
+    ports:
+      - "8123:8123"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Zurich
+    volumes:
+      - ./ev-telemetry-hub/data/homeassistant:/config
+    restart: always
+    networks:
+      - telemetry_net
+
+  influxdb:
+    image: influxdb:2.7
+    container_name: telemetry_influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUX_USER:-admin}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUX_PASS:-LaVeraSecurePass2026!}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUX_ORG:-EV_Telemetry}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUX_BUCKET:-vehicle_data}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUX_TOKEN:-lavera_master_token_2026_super_secure}
+      - DOCKER_INFLUXDB_INIT_RETENTION=${INFLUX_RETENTION:-0}
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - influxdb_config:/etc/influxdb2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: always
+    networks:
+      - telemetry_net
+
+  nodered:
+    image: nodered/node-red:latest
+    container_name: telemetry_nodered
+    ports:
+      - "1880:1880"
+    environment:
+      - TZ=Europe/Zurich
+    volumes:
+      - ./ev-telemetry-hub/data/nodered:/data
+    restart: always
+    networks:
+      - telemetry_net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: telemetry_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS:-admin}
+      - TZ=Europe/Zurich
+    volumes:
+      - ./ev-telemetry-hub/data/grafana:/var/lib/grafana
+    restart: always
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    networks:
+      - telemetry_net
+
+networks:
+  telemetry_net:
+    driver: bridge
+
+volumes:
+  influxdb_data:
+  influxdb_config:

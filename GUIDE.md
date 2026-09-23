@@ -11,6 +11,9 @@ This guide provides step-by-step instructions for deploying, integrating multi-b
 1. [Architecture & Core Concepts](#1-architecture--core-concepts)
 2. [Prerequisites & System Requirements](#2-prerequisites--system-requirements)
 3. [Stack Installation & Deployment](#3-stack-installation--deployment)
+   - [3b. All-in-One Offline Container & Raspberry Pi / ARM Deployment](#3b-all-in-one-offline-container--raspberry-pi--arm-deployment)
+4. [Step 1: Vehicle Telemetry Extraction with Home Assistant](#4-step-1-vehicle-telemetry-extraction-with-home-assistant)
+   - [4b. Importing Tesla Historical Telemetry (Tessie & TeslaFi)](#4b-importing-tesla-historical-telemetry-tessie--teslafi)
 4. [Step 1: Vehicle Telemetry Extraction with Home Assistant](#4-step-1-vehicle-telemetry-extraction-with-home-assistant)
 5. [Step 2: InfluxDB 2.7 Configuration (Buckets & Tokens)](#5-step-2-influxdb-27-configuration-buckets--tokens)
 6. [Step 3: Telemetry Ingestion (Direct vs. Node-RED ETL)](#6-step-3-telemetry-ingestion-direct-vs-node-red-etl)
@@ -104,6 +107,61 @@ docker compose logs -f
 
 ---
 
+---
+
+## 3b. All-in-One Offline Container & Raspberry Pi / ARM Deployment
+
+If you want a lightweight, zero-cloud deployment for a garage, vehicle, or single-board computer (Raspberry Pi 3/4/5, Orange Pi, Rock Pi), use the **All-in-One Offline Stack**.
+
+### Features of the All-in-One Profile
+- **Zero-Cloud & 100% Offline:** The web dashboard, SQLite time-series engine, and importer run locally with zero external script or CDN calls.
+- **Multi-Architecture:** Natively supports `linux/amd64`, `linux/arm64` (RPi 4/5, Apple Silicon, ARM servers), and `linux/arm/v7` (RPi 3/Zero 2W 32-bit).
+- **Single Command Startup:**
+  ```bash
+  cd ev-telemetry-hub
+  docker compose -f docker-compose.all-in-one.yml up -d
+  ```
+- **Access Local Dashboard:** `http://localhost:8080` (or `http://lavera.local:8080` on Raspberry Pi via mDNS).
+
+### Flashing Raspberry Pi with `cloud-init` (Unattended Appliance)
+1. Download [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
+2. Select your OS (e.g. *Raspberry Pi OS Lite 64-bit*).
+3. Open **OS Customization** settings (Gear icon) ? Go to the **Services / Cloud-init** tab.
+4. Paste the contents of [`scripts/cloud-init-lavera.yaml`](scripts/cloud-init-lavera.yaml).
+5. Flash your microSD / SSD card.
+6. Insert into your Raspberry Pi and power on. In 2-3 minutes, LaVera Hub will be fully active and reachable at `http://lavera.local:8080`.
+
+### Building a Custom ARM Appliance Image
+On any Linux or WSL workstation with Docker Buildx:
+```bash
+bash scripts/build-arm-image.sh arm64
+```
+This script compiles the ARM layers, exports a self-contained `.tar.gz` image archive, and creates an automated installation package with a `systemd` service unit.
+
+---
+
+## 3c. Configuring Automatic Container Startup on Boot
+
+All LaVera containers are configured with `restart: always` in both `docker-compose.yml` and `docker-compose.all-in-one.yml`, guaranteeing that Docker restarts them on crashes or engine boot.
+
+To ensure the stack boots automatically upon system power-on without user intervention:
+
+### On Windows (Docker Desktop)
+Run the auto-start configuration script in PowerShell:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\enable-autostart.ps1
+```
+This:
+1. Configures Docker Desktop to open automatically on Windows login.
+2. Registers a minimized startup launcher that waits for Docker to initialize and runs `docker compose up -d`.
+
+### On Linux and Raspberry Pi
+Run with root permissions:
+```bash
+sudo bash scripts/enable-autostart.sh
+```
+This enables `docker` and `containerd` under `systemd` and installs `lavera-autostart.service` to bring up the containers automatically on every reboot.
+
 ## 4. Step 1: Vehicle Telemetry Extraction with Home Assistant
 
 Access Home Assistant at: **`http://<YOUR-SERVER-IP>:8123`** and complete the initial onboarding to create your administrator account.
@@ -142,6 +200,50 @@ Integrating your charger into Home Assistant lets you track true charging effici
 $$\text{Charging Loss (\%)} = \left(1 - \frac{\Delta \text{Energy Added to Battery (kWh)}}{\text{Energy Supplied by EVSE (kWh)}}\right) \times 100$$
 
 ---
+
+---
+
+## 4b. Importing Tesla Historical Telemetry (Tessie & TeslaFi)
+
+If you are migrating to LaVera from **Tessie** or **TeslaFi**, you can import your historical driving, charging, and battery degradation logs so your long-term analytics remain intact.
+
+### Supported File Formats
+1. **TeslaFi:**
+   - `drives.csv` / `drives_*.csv`: Driving distance, durations, start/end battery SoC, Wh/mile or Wh/km, ambient temperatures, locations.
+   - `charges.csv` / `charges_*.csv`: Energy added (kWh), range added, duration, peak charging power (kW), electricity cost, fast charger flags.
+   - `battery_report.csv` / `calendar.csv`: Battery degradation %, rated range at 100%, and calculated capacity (usable kWh).
+   - `idles.csv` / `sleep.csv`: Inactivity and vampire / phantom drain records.
+2. **Tessie:**
+   - Full `.json` export (containing `drives`, `charges`, and `battery_health` objects).
+   - `.csv` exports for drives and charge sessions.
+
+### Intelligent Normalization Engine
+The importer automatically:
+- Converts imperial units (miles, ?F, Wh/mile) to metric standard (km, ?C, Wh/km) while preserving precision.
+- Normalizes disparate timestamp formats (ISO 8601, TeslaFi `YYYY-MM-DD HH:MM:SS`, US `MM/DD/YYYY`, and Unix epochs) into UTC.
+- Stores records in the local SQLite database (`lavera.db`) and optionally forwards metrics to your InfluxDB 2.x bucket if configured.
+
+### Method 1: Web Interface (Drag & Drop)
+1. Open the LaVera Dashboard: `http://localhost:8080` (or `http://lavera.local:8080`).
+2. Click on the **?? Importar Tessie / TeslaFi** navigation tab.
+3. Drag your CSV or JSON files into the upload zone (or click **Seleccionar Archivo**).
+4. The server automatically classifies the file type and displays the count of imported records.
+
+### Method 2: Command-Line Interface (CLI)
+You can also run batch imports from your terminal or scripts:
+```bash
+# 1. Import TeslaFi drives
+python -m importer.cli --source teslafi --type drives --file /path/to/drives.csv --vin MY_TESLA_VIN
+
+# 2. Import TeslaFi charges
+python -m importer.cli --source teslafi --type charges --file /path/to/charges.csv --vin MY_TESLA_VIN
+
+# 3. Import Tessie JSON export
+python -m importer.cli --source tessie --file /path/to/tessie_export.json --vin MY_TESLA_VIN
+
+# 4. Import directly into InfluxDB 2.x bucket
+python -m importer.cli --source teslafi --file /path/to/drives.csv --influx-url http://localhost:8086 --influx-token YOUR_TOKEN --influx-bucket telemetry
+```
 
 ## 5. Step 2: InfluxDB 2.7 Configuration (Buckets & Tokens)
 
@@ -353,6 +455,33 @@ To access dashboards on mobile networks without exposing insecure ports:
 ---
 
 ## 10. Troubleshooting & FAQ
+### 10.1 InfluxDB Fails to Start or Exit Code 1 in Docker ("Connection refused")
+If the `telemetry_influxdb` container does not respond or crashes on boot, it is typically caused by:
+
+1. **Missing `.env` or password shorter than 8 characters:**
+   - InfluxDB 2.x setup mode (`DOCKER_INFLUXDB_INIT_MODE=setup`) strictly requires a password with **at least 8 characters**.
+   - *Fix:* `docker-compose.yml` has safe fallback defaults (`${INFLUX_PASS:-LaVeraSecurePass2026!}`) and a pre-configured `.env` is provided.
+
+2. **Windows NTFS File Locking (BoltDB `flock` issue):**
+   - Mounting a host Windows path (`./data/influxdb`) often causes BoltDB file-locking failures in Docker Desktop.
+   - *Fix:* Use Docker named volumes (`influxdb_data:/var/lib/influxdb2`) which reside natively in ext4.
+
+3. **Clean Reset of InfluxDB:**
+   ```bash
+   docker compose down -v
+   docker compose up -d influxdb
+   docker compose logs -f influxdb
+   ```
+
+4. **Run Automated Diagnostic Script:**
+   - On Windows: `powershell -ExecutionPolicy Bypass -File scripts/diagnose-influxdb.ps1`
+   - On Linux: `bash scripts/diagnose-influxdb.sh`
+
+5. **All-in-One Alternative (Zero-InfluxDB Dependency):**
+   - If you want an immediate, bulletproof offline dashboard with SQLite:
+     ```bash
+     docker compose -f docker-compose.all-in-one.yml up -d
+     ```
 
 ### ❓ InfluxDB returns "401 Unauthorized"
 - **Cause:** The API token used in Home Assistant, Node-RED, or Grafana is incorrect or lacks read/write permissions for bucket `vehicle_data`.

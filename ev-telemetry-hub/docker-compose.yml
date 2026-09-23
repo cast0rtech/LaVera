@@ -5,21 +5,19 @@ services:
   homeassistant:
     image: lscr.io/linuxserver/homeassistant:latest
     container_name: telemetry_ha
-    # En Windows/macOS (Docker Desktop) o pruebas locales se usan puertos y bridge:
     ports:
       - "8123:8123"
-    # Nota: Si se despliega en Linux nativo para autodescubrimiento mDNS/SSDP de vehículos en LAN, se puede usar: network_mode: host
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=Europe/Zurich
     volumes:
       - ./data/homeassistant:/config
-    restart: unless-stopped
+    restart: always
     networks:
       - telemetry_net
 
-  # 2. Base de Datos de Series Temporales
+  # 2. Base de Datos de Series Temporales (InfluxDB 2.7)
   influxdb:
     image: influxdb:2.7
     container_name: telemetry_influxdb
@@ -27,18 +25,27 @@ services:
       - "8086:8086"
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUX_USER}
-      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUX_PASS}
-      - DOCKER_INFLUXDB_INIT_ORG=${INFLUX_ORG}
-      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUX_BUCKET}
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUX_USER:-admin}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUX_PASS:-LaVeraSecurePass2026!}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUX_ORG:-EV_Telemetry}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUX_BUCKET:-vehicle_data}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUX_TOKEN:-lavera_master_token_2026_super_secure}
+      - DOCKER_INFLUXDB_INIT_RETENTION=${INFLUX_RETENTION:-0}
     volumes:
-      - ./data/influxdb:/var/lib/influxdb2
-      - ./data/influxdb_config:/etc/influxdb2
-    restart: unless-stopped
+      # Named volume avoids Windows NTFS flock/BoltDB file locking crashes
+      - influxdb_data:/var/lib/influxdb2
+      - influxdb_config:/etc/influxdb2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: always
     networks:
       - telemetry_net
 
-  # 3. Procesamiento y Lógica
+  # 3. Procesamiento y L?gica
   nodered:
     image: nodered/node-red:latest
     container_name: telemetry_nodered
@@ -48,27 +55,32 @@ services:
       - TZ=Europe/Zurich
     volumes:
       - ./data/nodered:/data
-    restart: unless-stopped
+    restart: always
     networks:
       - telemetry_net
 
-  # 4. Dashboard de Visualización
+  # 4. Dashboard de Visualizaci?n
   grafana:
     image: grafana/grafana:latest
     container_name: telemetry_grafana
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS:-admin}
       - TZ=Europe/Zurich
     volumes:
       - ./data/grafana:/var/lib/grafana
-    restart: unless-stopped
+    restart: always
     depends_on:
-      - influxdb
+      influxdb:
+        condition: service_healthy
     networks:
       - telemetry_net
 
 networks:
   telemetry_net:
     driver: bridge
+
+volumes:
+  influxdb_data:
+  influxdb_config:

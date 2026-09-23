@@ -1,0 +1,40 @@
+# ==============================================================================
+# LaVera Hub - All-in-One Multi-Architecture Dockerfile
+# Supported Architectures: linux/amd64, linux/arm64, linux/arm/v7 (Raspberry Pi)
+# 100% Offline-Capable | Zero External Cloud Dependencies
+# ==============================================================================
+
+FROM python:3.11-slim-bullseye
+
+# Prevent python from buffering stdout/stderr
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PORT=8080 \
+    LAVERA_DB_PATH=/app/data/lavera.db
+
+WORKDIR /app
+
+# Install minimal system utilities for healthchecks & network tooling
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    sqlite3 \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy application and importer code
+COPY importer/ /app/importer/
+COPY all-in-one/ /app/all-in-one/
+
+# Create persistent data volume directory
+RUN mkdir -p /app/data
+
+VOLUME ["/app/data"]
+
+EXPOSE 8080
+
+# Healthcheck testing offline API responsiveness
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=3)" || exit 1
+
+ENTRYPOINT ["python"]
+CMD ["all-in-one/app.py"]

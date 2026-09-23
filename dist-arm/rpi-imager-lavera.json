@@ -1,0 +1,19 @@
+{
+  "os_list": [
+    {
+      "name": "LaVera - Universal EV Telemetry Hub",
+      "description": "Plataforma auto-hospedada 100% offline para telemetría multimarca de vehículos eléctricos (Tesla, VAG, Renault, BYD, etc.) con importador de Tessie y TeslaFi.",
+      "icon": "https://raw.githubusercontent.com/castor/LaVera/main/docs/assets/icon.png",
+      "url": "https://github.com/castor/LaVera/releases/latest/download/lavera-pi-appliance.img.xz",
+      "extract_size": 2500000000,
+      "extract_sha256": "",
+      "image_download_size": 520000000,
+      "init_format": "systemd",
+      "devices": [
+        "pi3-64bit",
+        "pi4-64bit",
+        "pi5-64bit"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LaVera Hub - EV Telemetry & Offline Analytics</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar / Header -->
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-icon">?</span>
+        <div>
+          <h1>LaVera <span class="badge">Hub</span></h1>
+          <p class="subtitle">Universal EV Telemetry & Offline Analytics</p>
+        </div>
+      </div>
+      <div class="header-status">
+        <span class="status-indicator online"></span>
+        <span id="conn-status">Modo Local Offline</span>
+        <span class="badge vehicle-badge" id="current-vin">Tesla Model 3/Y</span>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="overview">?? Visi?n General</button>
+      <button class="tab-btn" data-tab="drives">?? Conducciones</button>
+      <button class="tab-btn" data-tab="charges">?? Cargas</button>
+      <button class="tab-btn" data-tab="battery">?? Salud Bater?a</button>
+      <button class="tab-btn" data-tab="importer">?? Importar Tessie / TeslaFi</button>
+      <button class="tab-btn" data-tab="export">?? Copia de Seguridad</button>
+    </nav>
+
+    <!-- Main Content Container -->
+    <main class="content-container">
+
+      <!-- TAB 1: OVERVIEW -->
+      <section id="tab-overview" class="tab-pane active">
+        <!-- KPI Cards Grid -->
+        <div class="kpi-grid">
+          <div class="card kpi-card">
+            <div class="kpi-title">Distancia Total</div>
+            <div class="kpi-value" id="kpi-distance">-- <span class="unit">km</span></div>
+            <div class="kpi-sub" id="kpi-odometer">Od?metro: -- km</div>
+          </div>
+          <div class="card kpi-card">
+            <div class="kpi-title">Eficiencia Media</div>
+            <div class="kpi-value" id="kpi-efficiency">-- <span class="unit">Wh/km</span></div>
+            <div class="kpi-sub" id="kpi-energy">Consumo: -- kWh</div>
+          </div>
+          <div class="card kpi-card">
+            <div class="kpi-title">Energ?a Cargada</div>
+            <div class="kpi-value" id="kpi-charged">-- <span class="unit">kWh</span></div>
+            <div class="kpi-sub" id="kpi-charges-count">-- sesiones de carga</div>
+          </div>
+          <div class="card kpi-card">
+            <div class="kpi-title">Salud Bater?a (SOH)</div>
+            <div class="kpi-value" id="kpi-health">-- <span class="unit">%</span></div>
+            <div class="kpi-sub" id="kpi-degradation">Degradaci?n: --%</div>
+          </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="charts-grid">
+          <div class="card chart-card">
+            <div class="card-header">
+              <h3>Curva de Degradaci?n y Capacidad (kWh)</h3>
+              <span class="badge info">Hist?rico Real</span>
+            </div>
+            <div class="canvas-container">
+              <canvas id="chart-degradation"></canvas>
+            </div>
+          </div>
+          <div class="card chart-card">
+            <div class="card-header">
+              <h3>Estado de Carga y Telemetr?a</h3>
+              <span class="badge success" id="live-state-badge">Standby</span>
+            </div>
+            <div class="canvas-container gauge-box">
+              <canvas id="chart-gauge"></canvas>
+              <div class="gauge-details">
+                <div class="gauge-metric"><span class="label">Bater?a Actual:</span> <strong id="gauge-soc-text">--%</strong></div>
+                <div class="gauge-metric"><span class="label">Temp. Pack:</span> <strong id="gauge-temp-text">--?C</strong></div>
+                <div class="gauge-metric"><span class="label">Potencia:</span> <strong id="gauge-power-text">-- kW</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: DRIVES -->
+      <section id="tab-drives" class="tab-pane">
+        <div class="card">
+          <div class="card-header">
+            <h3>Hist?rico de Conducciones</h3>
+            <span class="card-action" id="drives-count-badge">0 viajes registrados</span>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table" id="table-drives">
+              <thead>
+                <tr>
+                  <th>Fecha & Hora</th>
+                  <th>Origen ? Destino</th>
+                  <th>Distancia</th>
+                  <th>Duraci?n</th>
+                  <th>Consumo</th>
+                  <th>Eficiencia</th>
+                  <th>SoC Bater?a</th>
+                  <th>Origen</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td colspan="8" class="text-center">No hay registros de conducci?n. Importa datos de Tessie o TeslaFi.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: CHARGES -->
+      <section id="tab-charges" class="tab-pane">
+        <div class="card">
+          <div class="card-header">
+            <h3>Sesiones de Carga</h3>
+            <span class="card-action" id="charges-count-badge">0 cargas registradas</span>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table" id="table-charges">
+              <thead>
+                <tr>
+                  <th>Fecha & Hora</th>
+                  <th>Ubicaci?n</th>
+                  <th>Energ?a A?adida</th>
+                  <th>Rango Ganado</th>
+                  <th>Potencia M?x</th>
+                  <th>SoC (Ini ? Fin)</th>
+                  <th>Coste</th>
+                  <th>Tipo</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td colspan="8" class="text-center">No hay sesiones de carga registradas.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: BATTERY -->
+      <section id="tab-battery" class="tab-pane">
+        <div class="card">
+          <div class="card-header">
+            <h3>Hist?rico de Capacidad y Estado de Degradaci?n</h3>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table" id="table-battery">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Capacidad Actual</th>
+                  <th>Capacidad F?brica</th>
+                  <th>Degradaci?n (%)</th>
+                  <th>Autonom?a 100%</th>
+                  <th>Od?metro</th>
+                  <th>Fuente</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td colspan="7" class="text-center">Sin m?tricas de bater?a cargadas.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: IMPORTER -->
+      <section id="tab-importer" class="tab-pane">
+        <div class="card">
+          <div class="card-header">
+            <h3>Importador de Datos de Tesla (Tessie & TeslaFi)</h3>
+            <span class="badge info">Procesamiento 100% Local</span>
+          </div>
+          <div class="importer-content">
+            <p class="description">
+              Sube directamente tus exportaciones descargadas desde <strong>Tessie</strong> (archivos <code>.json</code> o <code>.csv</code>) o <strong>TeslaFi</strong> (archivos <code>drives.csv</code>, <code>charges.csv</code>, <code>idles.csv</code>, o <code>calendar.csv</code>). 
+              El motor de LaVera detectar? autom?ticamente el formato, normalizar? unidades (millas/km, ?F/?C, Wh/mi) y almacenar? los datos de forma persistente.
+            </p>
+
+            <!-- Drag & Drop Zone -->
+            <div class="drop-zone" id="drop-zone">
+              <div class="drop-icon">??</div>
+              <h4>Arrastra tus archivos de Tessie o TeslaFi aqu?</h4>
+              <p>O haz clic para seleccionar archivos CSV o JSON desde tu dispositivo</p>
+              <input type="file" id="file-input" accept=".csv,.json" multiple style="display:none">
+              <button class="btn btn-primary" id="btn-browse">Seleccionar Archivo</button>
+            </div>
+
+            <!-- Upload Status / Alert -->
+            <div id="import-status" class="status-alert" style="display:none;"></div>
+
+            <!-- Import Guidelines -->
+            <div class="help-box">
+              <h4>?? ?C?mo obtener tus archivos de exportaci?n?</h4>
+              <ul>
+                <li><strong>Tessie:</strong> Abre la app o web de Tessie ? Ajustes ? Exportar Datos ? Descarga el historial en formato CSV o JSON.</li>
+                <li><strong>TeslaFi:</strong> Entra en TeslaFi.com ? Men? <em>Drives</em>, <em>Charges</em> o <em>Battery Report</em> ? Haz clic en <em>Export to CSV</em>.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: EXPORT -->
+      <section id="tab-export" class="tab-pane">
+        <div class="card">
+          <div class="card-header">
+            <h3>Copia de Seguridad y Exportaci?n Offline</h3>
+          </div>
+          <div class="export-content">
+            <p>Descarga toda tu base de datos hist?rica en formato abierto JSON para salvaguardar tu informaci?n de forma soberana o transferirla a otra instancia de LaVera.</p>
+            <div class="export-actions">
+              <a href="/api/export" download="lavera_backup.json" class="btn btn-success">?? Descargar Copia Completa (JSON)</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Local Offline Scripts (Zero External CDN Dependencies) -->
+  <script src="chart-mini.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

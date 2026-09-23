@@ -1,0 +1,75 @@
+#cloud-config
+# ==============================================================================
+# LaVera Hub - Cloud-Init Automated Appliance Configuration
+# Compatible with Raspberry Pi Imager (OS Customization / user-data)
+# and Ubuntu / Debian / DietPi ARM installations
+# ==============================================================================
+
+hostname: lavera
+manage_etc_hosts: true
+
+# Install Docker CE and Avahi (mDNS) for lavera.local resolution
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - avahi-daemon
+  - avahi-utils
+  - git
+
+# Setup system user and environment
+users:
+  - name: lavera
+    gecos: LaVera Telemetry User
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: [sudo, docker]
+    shell: /bin/bash
+
+write_files:
+  # Systemd service for automatic container startup on boot
+  - path: /etc/systemd/system/lavera-hub.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=LaVera All-in-One EV Telemetry Hub
+      After=docker.service network-online.target
+      Wants=docker.service network-online.target
+
+      [Service]
+      Type=simple
+      Restart=always
+      RestartSec=10
+      ExecStartPre=-/usr/bin/docker stop lavera_hub
+      ExecStartPre=-/usr/bin/docker rm lavera_hub
+      ExecStart=/usr/bin/docker run --name lavera_hub -p 8080:8080 -v /opt/lavera/data:/app/data --restart unless-stopped lavera-hub:all-in-one
+      ExecStop=/usr/bin/docker stop lavera_hub
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  # 1. Install Docker Engine
+  - mkdir -p /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+  # 2. Setup LaVera working directories
+  - mkdir -p /opt/lavera/data
+  - chown -R lavera:lavera /opt/lavera
+
+  # 3. Clone and build LaVera Hub directly on device
+  - git clone https://github.com/castor/LaVera.git /opt/lavera/src || true
+  - docker build -t lavera-hub:all-in-one -f /opt/lavera/src/ev-telemetry-hub/Dockerfile.all-in-one /opt/lavera/src/ev-telemetry-hub
+
+  # 4. Enable and start background service
+  - systemctl daemon-reload
+  - systemctl enable avahi-daemon
+  - systemctl start avahi-daemon
+  - systemctl enable lavera-hub.service
+  - systemctl start lavera-hub.service
+
+final_message: "? LaVera Hub is ready! Access your dashboard at http://lavera.local:8080"

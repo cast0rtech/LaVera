@@ -10,3 +10,12 @@ data/
 .DS_Store
 Thumbs.db
 *~
+# Python bytecode & virtualenvs
+__pycache__/
+*.py[cod]
+*$py.class
+*.db
+*.sqlite3
+
+# Build artifacts
+dist-arm/bootfs_overlay/

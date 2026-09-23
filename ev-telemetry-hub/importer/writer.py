@@ -67,6 +67,13 @@ class TelemetryWriter:
         try:
             cursor = conn.cursor()
             cursor.execute("""
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS drives (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     provider TEXT,
@@ -136,6 +143,8 @@ class TelemetryWriter:
                     battery_temp_c REAL,
                     inside_temp_c REAL,
                     outside_temp_c REAL,
+                    odometer_km REAL,
+                    charging_state TEXT,
                     latitude REAL,
                     longitude REAL,
                     raw_json TEXT

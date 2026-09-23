@@ -22,6 +22,10 @@
         <span id="conn-status">Modo Local Offline</span>
         <span class="badge vehicle-badge" id="current-vin">Tesla Model 3/Y</span>
       </div>
+          <div class="header-actions" id="header-actions">
+        <button class="btn btn-sm btn-outline" id="btn-quick-demo" title="Cargar datos de ejemplo realistas">🌱 Cargar Demo</button>
+        <button class="btn btn-sm btn-outline" id="btn-quick-sync" title="Ir a sincronización online">⚡ Conectar API</button>
+      </div>
     </header>
 
     <!-- Navigation Tabs -->
@@ -31,6 +35,7 @@
       <button class="tab-btn" data-tab="charges">?? Cargas</button>
       <button class="tab-btn" data-tab="battery">?? Salud Bater?a</button>
       <button class="tab-btn" data-tab="importer">?? Importar Tessie / TeslaFi</button>
+      <button class="tab-btn" data-tab="online">🔗 Conexión Online & APIs</button>
       <button class="tab-btn" data-tab="export">?? Copia de Seguridad</button>
     </nav>
 
@@ -39,6 +44,21 @@
 
       <!-- TAB 1: OVERVIEW -->
       <section id="tab-overview" class="tab-pane active">
+        <!-- Empty State Banner -->
+        <div id="empty-state-banner" class="empty-banner" style="display: none;">
+          <div class="empty-banner-content">
+            <span class="empty-icon">💡</span>
+            <div>
+              <h4>Base de Datos Local Vacía</h4>
+              <p>No hay datos guardados aún en tu base de datos local SQLite. Puedes sincronizar directamente con la API de Tessie, subir tus archivos de exportación, o cargar datos de demostración para explorar la interfaz.</p>
+            </div>
+          </div>
+          <div class="empty-banner-actions">
+            <button class="btn btn-sm btn-primary" onclick="switchTab('online')">🔗 Conectar API Tessie</button>
+            <button class="btn btn-sm btn-secondary" onclick="switchTab('importer')">📁 Subir Archivo</button>
+            <button class="btn btn-sm btn-outline" id="btn-empty-demo">🌱 Cargar Demo</button>
+          </div>
+        </div>
         <!-- KPI Cards Grid -->
         <div class="kpi-grid">
           <div class="card kpi-card">
@@ -214,6 +234,135 @@
       </section>
 
       <!-- TAB 6: EXPORT -->
+            <!-- TAB 7: ONLINE SYNC & APIS -->
+      <section id="tab-online" class="tab-pane">
+        <!-- Tessie Cloud Sync Card -->
+        <div class="card mb-4">
+          <div class="card-header">
+            <div class="header-with-badge">
+              <h3>⚡ Conexión Online con Tessie Cloud API</h3>
+              <span class="badge" id="tessie-conn-badge">Desconectado</span>
+            </div>
+            <span class="badge info">Sincronización Automática</span>
+          </div>
+          <div class="online-content">
+            <p class="description">
+              Conecta LaVera Hub directamente con los servidores de <strong>Tessie</strong> utilizando tu <em>Personal Access Token</em>.
+              Esto permite descargar automáticamente tus viajes, sesiones de carga, curva de salud de batería y telemetría en vivo sin necesidad de exportar archivos manualmente.
+            </p>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="tessie-token-input">Token de Acceso de Tessie (Personal Access Token):</label>
+                <div class="input-with-button">
+                  <input type="password" id="tessie-token-input" class="form-control" placeholder="Pega aquí tu token (ej: tess_sec_...)">
+                  <button class="btn btn-outline" id="btn-toggle-token" type="button">👁️</button>
+                </div>
+                <small class="form-hint">
+                  ¿Cómo conseguirlo? Inicia sesión en <a href="https://dash.tessie.com/settings/api" target="_blank" rel="noopener">dash.tessie.com/settings/api</a> o en la app de Tessie (Ajustes &gt; Desarrollador / API &gt; Generate Token).
+                </small>
+              </div>
+
+              <div class="form-group">
+                <label for="tessie-vin-select">Vehículo Detectado / VIN:</label>
+                <select id="tessie-vin-select" class="form-control">
+                  <option value="">-- Haz clic en "Probar Conexión" para detectar vehículos --</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Options Checkboxes -->
+            <div class="sync-options">
+              <label class="checkbox-label">
+                <input type="checkbox" id="sync-opt-drives" checked> Sincronizar Histórico de Conducciones (Drives)
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="sync-opt-charges" checked> Sincronizar Histórico de Cargas (Charges)
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="sync-opt-battery" checked> Sincronizar Salud y Degradación de Batería
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="sync-opt-save-token" checked> Guardar Token de forma persistente en SQLite local
+              </label>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="actions-row mt-3">
+              <button class="btn btn-secondary" id="btn-test-tessie">🔍 Probar Conexión & Detectar Coches</button>
+              <button class="btn btn-primary" id="btn-sync-tessie">⚡ Sincronizar Todo Ahora</button>
+            </div>
+
+            <!-- Status Alert for Sync -->
+            <div id="tessie-sync-status" class="status-alert mt-3" style="display:none;"></div>
+          </div>
+        </div>
+
+        <!-- Direct Live Telemetry Webhook Card -->
+        <div class="card mb-4">
+          <div class="card-header">
+            <h3>📡 Recepción de Telemetría Directa en Tiempo Real</h3>
+            <span class="badge success">Local Webhook</span>
+          </div>
+          <div class="online-content">
+            <p class="description">
+              Puedes enviar métricas en vivo en tiempo real directamente a LaVera Hub desde el navegador del Tesla, Home Assistant, Tasker, apps de OBD2 o scripts automatizados.
+            </p>
+            <div class="code-box">
+              <div class="code-header">
+                <span>Endpoint HTTP POST</span>
+                <span class="badge">JSON</span>
+              </div>
+              <pre><code>POST http://localhost:8080/api/telemetry
+Content-Type: application/json
+
+{
+  "vin": "MI_TESLA",
+  "soc": 78.5,
+  "power_kw": -14.2,
+  "speed_kmh": 110.0,
+  "battery_temp_c": 26.0,
+  "odometer_km": 34500.0,
+  "charging_state": "STANDBY"
+}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Local SQLite Database Management Card -->
+        <div class="card">
+          <div class="card-header">
+            <h3>💾 Gestión de Datos Guardados Localmente</h3>
+            <span class="badge info">SQLite Persistente</span>
+          </div>
+          <div class="online-content">
+            <p class="description">
+              Toda la información se almacena 100% de forma soberana y local en tu equipo en el archivo <code>ev-telemetry-hub/all-in-one/data/lavera.db</code>.
+            </p>
+            <div class="db-stats-grid">
+              <div class="db-stat-item">
+                <span class="db-stat-num" id="db-stat-drives">0</span>
+                <span class="db-stat-label">Viajes Guardados</span>
+              </div>
+              <div class="db-stat-item">
+                <span class="db-stat-num" id="db-stat-charges">0</span>
+                <span class="db-stat-label">Cargas Guardadas</span>
+              </div>
+              <div class="db-stat-item">
+                <span class="db-stat-num" id="db-stat-battery">0</span>
+                <span class="db-stat-label">Registros Batería</span>
+              </div>
+            </div>
+
+            <div class="actions-row mt-3">
+              <button class="btn btn-outline" id="btn-seed-demo-tab">🌱 Cargar Datos de Demostración</button>
+              <button class="btn btn-danger-outline" id="btn-clear-db-tab">🗑️ Vaciar Base de Datos Local</button>
+            </div>
+            <div id="db-action-status" class="status-alert mt-3" style="display:none;"></div>
+          </div>
+        </div>
+      </section>
+
       <section id="tab-export" class="tab-pane">
         <div class="card">
           <div class="card-header">

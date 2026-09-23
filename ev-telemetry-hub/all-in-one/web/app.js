@@ -1,47 +1,63 @@
 /**
- * LaVera Hub - Frontend Application Logic
+ * LaVera Hub Offline Dashboard Engine
+ * Handles REST API communication, chart rendering, data import, and online cloud sync.
  */
 
 document.addEventListener("DOMContentLoaded", () => {
   initTabs();
   initImporter();
+  initOnlineSync();
+  initQuickActions();
   loadAllData();
 
-  // Refresh every 10 seconds
-  setInterval(loadStats, 10000);
+  // Auto-refresh stats every 30 seconds
+  setInterval(loadStats, 30000);
 });
+
+// Global tab switcher
+function switchTab(targetTab) {
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+
+  const targetBtn = document.querySelector(`.tab-btn[data-tab="${targetTab}"]`);
+  const targetPane = document.getElementById(`tab-${targetTab}`);
+
+  if (targetBtn) targetBtn.classList.add("active");
+  if (targetPane) targetPane.classList.add("active");
+
+  if (targetTab === "drives") loadDrives();
+  if (targetTab === "charges") loadCharges();
+  if (targetTab === "battery") loadBattery();
+  if (targetTab === "online") loadDbInfo();
+}
+window.switchTab = switchTab;
 
 // Tab Navigation
 function initTabs() {
-  const tabs = document.querySelectorAll(".tab-btn");
-  tabs.forEach(btn => {
+  const tabBtns = document.querySelectorAll(".tab-btn");
+  tabBtns.forEach(btn => {
     btn.addEventListener("click", () => {
-      tabs.forEach(t => t.classList.remove("active"));
-      document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
-
-      btn.classList.add("active");
-      const targetId = `tab-${btn.dataset.tab}`;
-      const targetPane = document.getElementById(targetId);
-      if (targetPane) {
-        targetPane.classList.add("active");
-      }
-
-      // Re-render chart on tab switch so size is calculated properly
-      if (btn.dataset.tab === "overview") {
-        setTimeout(loadStats, 50);
-      }
+      const tab = btn.getAttribute("data-tab");
+      switchTab(tab);
     });
   });
 }
 
-// Data Fetching
+// Quick Actions in Header & Banner
+function initQuickActions() {
+  const quickDemo = document.getElementById("btn-quick-demo");
+  const emptyDemo = document.getElementById("btn-empty-demo");
+  const quickSync = document.getElementById("btn-quick-sync");
+
+  if (quickDemo) quickDemo.addEventListener("click", handleSeedDemo);
+  if (emptyDemo) emptyDemo.addEventListener("click", handleSeedDemo);
+  if (quickSync) quickSync.addEventListener("click", () => switchTab("online"));
+}
+
+// Data Loaders
 async function loadAllData() {
-  await Promise.all([
-    loadStats(),
-    loadDrives(),
-    loadCharges(),
-    loadBattery()
-  ]);
+  await loadStats();
+  await loadDbInfo();
 }
 
 async function loadStats() {
@@ -50,12 +66,20 @@ async function loadStats() {
     if (!res.ok) return;
     const data = await res.json();
 
-    // KPIs
+    // Check empty state
+    const drivesCount = (data.drives && data.drives.total_count) || 0;
+    const chargesCount = (data.charges && data.charges.total_count) || 0;
+    const emptyBanner = document.getElementById("empty-state-banner");
+    if (emptyBanner) {
+      emptyBanner.style.display = (drivesCount === 0 && chargesCount === 0) ? "flex" : "none";
+    }
+
+    // KPI Cards
     if (data.drives) {
       document.getElementById("kpi-distance").innerHTML = `${data.drives.total_distance_km.toLocaleString()} <span class="unit">km</span>`;
-      document.getElementById("kpi-odometer").innerText = `Od?metro: ${data.drives.latest_odometer_km.toLocaleString()} km`;
-      document.getElementById("kpi-efficiency").innerHTML = `${data.drives.avg_efficiency_wh_km} <span class="unit">Wh/km</span>`;
-      document.getElementById("kpi-energy").innerText = `Consumo: ${data.drives.total_energy_kwh.toLocaleString()} kWh`;
+      document.getElementById("kpi-odometer").innerText = `Odómetro: ${data.drives.latest_odometer_km.toLocaleString()} km (${data.drives.total_count} viajes)`;
+      document.getElementById("kpi-efficiency").innerHTML = `${Math.round(data.drives.avg_efficiency_wh_km)} <span class="unit">Wh/km</span>`;
+      document.getElementById("kpi-energy").innerText = `Consumo Total: ${data.drives.total_energy_kwh.toLocaleString()} kWh`;
     }
 
     if (data.charges) {
@@ -66,16 +90,27 @@ async function loadStats() {
     if (data.battery) {
       const soh = (100 - (data.battery.degradation_pct || 0)).toFixed(1);
       document.getElementById("kpi-health").innerHTML = `${soh} <span class="unit">%</span>`;
-      document.getElementById("kpi-degradation").innerText = `Degradaci?n: ${data.battery.degradation_pct}% (${data.battery.capacity_kwh} kWh)`;
+      document.getElementById("kpi-degradation").innerText = `Degradación: ${data.battery.degradation_pct}% (${data.battery.capacity_kwh} kWh)`;
     }
 
     // Gauge & Live Telemetry
-    const liveSoc = data.live && data.live.soc !== null ? data.live.soc : 75;
+    const liveSoc = data.live && data.live.soc !== null ? data.live.soc : (drivesCount > 0 ? 75 : 0);
     ChartMini.renderGauge("chart-gauge", liveSoc, 0, 100, { label: "State of Charge (SoC)", unit: "%" });
 
     document.getElementById("gauge-soc-text").innerText = `${liveSoc}%`;
-    document.getElementById("gauge-temp-text").innerText = data.live && data.live.battery_temp_c ? `${data.live.battery_temp_c}?C` : "--?C";
+    document.getElementById("gauge-temp-text").innerText = data.live && data.live.battery_temp_c ? `${data.live.battery_temp_c}°C` : "--°C";
     document.getElementById("gauge-power-text").innerText = data.live && data.live.power_kw ? `${data.live.power_kw} kW` : "0.0 kW";
+
+    const badge = document.getElementById("live-state-badge");
+    if (badge) {
+      if (data.live && data.live.soc !== null) {
+        badge.className = "badge success";
+        badge.innerText = "En Línea";
+      } else {
+        badge.className = "badge";
+        badge.innerText = "Standby";
+      }
+    }
 
   } catch (err) {
     console.error("Error loading stats:", err);
@@ -90,17 +125,17 @@ async function loadDrives() {
 
     const tbody = document.querySelector("#table-drives tbody");
     const countBadge = document.getElementById("drives-count-badge");
-    countBadge.innerText = `${drives.length} viajes mostrados`;
+    if (countBadge) countBadge.innerText = `${drives.length} viajes mostrados`;
 
     if (drives.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="text-center">No hay registros de conducci?n. Importa datos de Tessie o TeslaFi.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center">No hay registros de conducción. Importa datos o conecta la API de Tessie.</td></tr>`;
       return;
     }
 
     tbody.innerHTML = drives.map(d => {
-      const fromTo = (d.start_location || "Desconocido") + " ? " + (d.end_location || "Desconocido");
+      const fromTo = (d.start_location || "Desconocido") + " → " + (d.end_location || "Desconocido");
       const durationMin = Math.round((d.duration_s || 0) / 60);
-      const socChange = `${d.start_soc}% ? ${d.end_soc}%`;
+      const socChange = `${d.start_soc}% → ${d.end_soc}%`;
       return `
         <tr>
           <td>${formatDate(d.started_at)}</td>
@@ -110,7 +145,7 @@ async function loadDrives() {
           <td>${d.energy_kwh} kWh</td>
           <td>${d.efficiency_wh_km} Wh/km</td>
           <td>${socChange}</td>
-          <td><span class="badge info">${d.provider.toUpperCase()}</span></td>
+          <td><span class="badge info">${(d.provider || "Auto").toUpperCase()}</span></td>
         </tr>
       `;
     }).join("");
@@ -127,7 +162,7 @@ async function loadCharges() {
 
     const tbody = document.querySelector("#table-charges tbody");
     const countBadge = document.getElementById("charges-count-badge");
-    countBadge.innerText = `${charges.length} cargas mostradas`;
+    if (countBadge) countBadge.innerText = `${charges.length} cargas mostradas`;
 
     if (charges.length === 0) {
       tbody.innerHTML = `<tr><td colspan="8" class="text-center">No hay sesiones de carga registradas.</td></tr>`;
@@ -135,8 +170,8 @@ async function loadCharges() {
     }
 
     tbody.innerHTML = charges.map(c => {
-      const socChange = `${c.start_soc}% ? ${c.end_soc}%`;
-      const isFast = c.is_fast_charge ? '<span class="badge vehicle-badge">R?PIDA / SC</span>' : '<span class="badge">AC LENTA</span>';
+      const socChange = `${c.start_soc}% → ${c.end_soc}%`;
+      const isFast = c.is_fast_charge ? '<span class="badge vehicle-badge">RÁPIDA / SC</span>' : '<span class="badge">AC LENTA</span>';
       return `
         <tr>
           <td>${formatDate(c.started_at)}</td>
@@ -163,12 +198,11 @@ async function loadBattery() {
 
     const tbody = document.querySelector("#table-battery tbody");
     if (history.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-center">Sin m?tricas de bater?a cargadas.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center">Sin métricas de batería cargadas.</td></tr>`;
       ChartMini.renderLineChart("chart-degradation", [], [], { unit: "kWh" });
       return;
     }
 
-    // Chart rendering
     const labels = history.map(h => (h.timestamp || "").substring(0, 10));
     const capacities = history.map(h => h.capacity_kwh);
     ChartMini.renderLineChart("chart-degradation", labels, capacities, {
@@ -195,12 +229,192 @@ async function loadBattery() {
   }
 }
 
+async function loadDbInfo() {
+  try {
+    const res = await fetch("/api/db/info");
+    if (!res.ok) return;
+    const info = await res.json();
+
+    const elDrives = document.getElementById("db-stat-drives");
+    const elCharges = document.getElementById("db-stat-charges");
+    const elBattery = document.getElementById("db-stat-battery");
+
+    if (elDrives) elDrives.innerText = info.drives_count || 0;
+    if (elCharges) elCharges.innerText = info.charges_count || 0;
+    if (elBattery) elBattery.innerText = info.battery_records || 0;
+  } catch (err) {
+    console.error("Error loading DB info:", err);
+  }
+}
+
+// Online Sync Logic (Tessie API)
+function initOnlineSync() {
+  const tokenInput = document.getElementById("tessie-token-input");
+  const toggleBtn = document.getElementById("btn-toggle-token");
+  const testBtn = document.getElementById("btn-test-tessie");
+  const syncBtn = document.getElementById("btn-sync-tessie");
+  const vinSelect = document.getElementById("tessie-vin-select");
+  const statusAlert = document.getElementById("tessie-sync-status");
+  const connBadge = document.getElementById("tessie-conn-badge");
+
+  const seedTabBtn = document.getElementById("btn-seed-demo-tab");
+  const clearDbBtn = document.getElementById("btn-clear-db-tab");
+  const dbActionStatus = document.getElementById("db-action-status");
+
+  // Toggle token visibility
+  if (toggleBtn && tokenInput) {
+    toggleBtn.addEventListener("click", () => {
+      tokenInput.type = tokenInput.type === "password" ? "text" : "password";
+      toggleBtn.innerText = tokenInput.type === "password" ? "👁️" : "🔒";
+    });
+  }
+
+  // Load existing config on startup
+  fetch("/api/sync/config")
+    .then(r => r.json())
+    .then(cfg => {
+      if (cfg.has_token && tokenInput) {
+        tokenInput.placeholder = `Token guardado (${cfg.masked_token})`;
+        if (connBadge) {
+          connBadge.className = "badge success";
+          connBadge.innerText = "Configurado";
+        }
+      }
+    })
+    .catch(() => {});
+
+  // Test Connection
+  if (testBtn) {
+    testBtn.addEventListener("click", async () => {
+      const token = tokenInput.value.trim();
+      statusAlert.style.display = "block";
+      statusAlert.className = "status-alert";
+      statusAlert.innerText = "Comprobando conexión con api.tessie.com...";
+
+      try {
+        const url = token ? `/api/sync/tessie/test?token=${encodeURIComponent(token)}` : "/api/sync/tessie/test";
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (res.ok && data.status === "success") {
+          const vehicles = data.vehicles || [];
+          statusAlert.className = "status-alert success";
+          statusAlert.innerText = `✅ ¡Conexión exitosa! Se han detectado ${vehicles.length} vehículo(s) en tu cuenta.`;
+          if (connBadge) {
+            connBadge.className = "badge success";
+            connBadge.innerText = "Conectado";
+          }
+
+          if (vinSelect) {
+            vinSelect.innerHTML = vehicles.map(v => {
+              const vin = v.vin || v;
+              const name = v.display_name || v.name || "Tesla";
+              return `<option value="${vin}">${name} (${vin})</option>`;
+            }).join("");
+          }
+        } else {
+          statusAlert.className = "status-alert error";
+          statusAlert.innerText = `❌ Error: ${data.message || "No se pudo conectar con Tessie."}`;
+          if (connBadge) {
+            connBadge.className = "badge warning";
+            connBadge.innerText = "Error Token";
+          }
+        }
+      } catch (err) {
+        statusAlert.className = "status-alert error";
+        statusAlert.innerText = `❌ Error de red: ${err.message}`;
+      }
+    });
+  }
+
+  // Full Sync
+  if (syncBtn) {
+    syncBtn.addEventListener("click", async () => {
+      const token = tokenInput.value.trim();
+      const vin = vinSelect ? vinSelect.value : "";
+      const syncDrives = document.getElementById("sync-opt-drives")?.checked ?? true;
+      const syncCharges = document.getElementById("sync-opt-charges")?.checked ?? true;
+      const syncBattery = document.getElementById("sync-opt-battery")?.checked ?? true;
+      const saveToken = document.getElementById("sync-opt-save-token")?.checked ?? true;
+
+      statusAlert.style.display = "block";
+      statusAlert.className = "status-alert";
+      statusAlert.innerText = "⏳ Sincronizando datos desde Tessie Cloud API... Por favor espera unos segundos.";
+
+      try {
+        const res = await fetch("/api/sync/tessie", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: json.stringify ? JSON.stringify({
+            token, vin, sync_drives: syncDrives, sync_charges: syncCharges,
+            sync_battery: syncBattery, save_token: saveToken
+          }) : ""
+        });
+        const result = await res.json();
+
+        if (res.ok && result.status === "success") {
+          statusAlert.className = "status-alert success";
+          statusAlert.innerText = `🎉 ¡Sincronización completada! ${result.message}`;
+          loadAllData();
+        } else {
+          statusAlert.className = "status-alert error";
+          statusAlert.innerText = `❌ Error al sincronizar: ${result.message || "Error desconocido"}`;
+        }
+      } catch (err) {
+        statusAlert.className = "status-alert error";
+        statusAlert.innerText = `❌ Error de red: ${err.message}`;
+      }
+    });
+  }
+
+  // Seed Demo Tab
+  if (seedTabBtn) seedTabBtn.addEventListener("click", handleSeedDemo);
+
+  // Clear DB Tab
+  if (clearDbBtn) {
+    clearDbBtn.addEventListener("click", async () => {
+      if (!confirm("¿Seguro que deseas vaciar todos los viajes, cargas y métricas guardadas en tu base de datos local?")) return;
+      try {
+        const res = await fetch("/api/data/clear", { method: "POST" });
+        if (res.ok) {
+          if (dbActionStatus) {
+            dbActionStatus.style.display = "block";
+            dbActionStatus.className = "status-alert success";
+            dbActionStatus.innerText = "Base de datos local vaciada con éxito.";
+          }
+          loadAllData();
+        }
+      } catch (e) {
+        alert("Error al vaciar base de datos");
+      }
+    });
+  }
+}
+
+async function handleSeedDemo() {
+  try {
+    const res = await fetch("/api/demo/seed", { method: "POST" });
+    const data = await res.json();
+    if (res.ok) {
+      alert(`🌱 ¡Datos de demostración cargados con éxito! (${data.seeded.drives} viajes, ${data.seeded.charges} cargas y degradación de batería).`);
+      switchTab("overview");
+      loadAllData();
+    } else {
+      alert("Error al cargar datos de demo: " + (data.error || ""));
+    }
+  } catch (err) {
+    alert("Error de red al cargar demo: " + err.message);
+  }
+}
+
 // Importer Drag & Drop
 function initImporter() {
   const dropZone = document.getElementById("drop-zone");
   const fileInput = document.getElementById("file-input");
   const browseBtn = document.getElementById("btn-browse");
   const statusAlert = document.getElementById("import-status");
+
+  if (!browseBtn || !fileInput || !dropZone) return;
 
   browseBtn.addEventListener("click", () => fileInput.click());
 
@@ -248,7 +462,7 @@ function initImporter() {
         if (res.ok) {
           totalImported += (result.records_imported || 0);
         } else {
-          errors.push(`${file.name}: ${result.detail || "Error desconocido"}`);
+          errors.push(`${file.name}: ${result.detail || result.error || "Error desconocido"}`);
         }
       } catch (err) {
         errors.push(`${file.name}: Error de red`);
@@ -257,11 +471,11 @@ function initImporter() {
 
     if (errors.length === 0) {
       statusAlert.className = "status-alert success";
-      statusAlert.innerText = `??xito! Se han importado correctamente ${totalImported} registros hist?ricos.`;
+      statusAlert.innerText = `🎉 ¡Éxito! Se han importado correctamente ${totalImported} registros históricos.`;
       loadAllData();
     } else {
       statusAlert.className = "status-alert error";
-      statusAlert.innerText = `Importaci?n parcial: ${totalImported} registros importados. Errores: ${errors.join("; ")}`;
+      statusAlert.innerText = `Importación parcial: ${totalImported} registros importados. Errores: ${errors.join("; ")}`;
       loadAllData();
     }
   }

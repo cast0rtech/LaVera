@@ -20,6 +20,30 @@ class OfflineStorage:
         self.db_path = db_path
         os.makedirs(os.path.dirname(self.db_path) or ".", exist_ok=True)
         self.writer = TelemetryWriter(db_path=self.db_path)
+        self._ensure_tables()
+
+    def _ensure_tables(self):
+        conn = self._get_conn()
+        try:
+            cur = conn.cursor()
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            ''')
+            # Check for live_telemetry columns
+            cur.execute("PRAGMA table_info(live_telemetry)")
+            cols = [r["name"] for r in cur.fetchall()]
+            if "odometer_km" not in cols:
+                cur.execute("ALTER TABLE live_telemetry ADD COLUMN odometer_km REAL")
+            if "charging_state" not in cols:
+                cur.execute("ALTER TABLE live_telemetry ADD COLUMN charging_state TEXT")
+            conn.commit()
+        finally:
+            conn.close()
+
 
     def _get_conn(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
@@ -221,6 +245,14 @@ class OfflineStorage:
                 float(lon) if lon is not None else None,
                 json.dumps(data)
             ))
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            ''')
+
             conn.commit()
             row_id = cur.lastrowid
         finally:
@@ -266,4 +298,93 @@ class OfflineStorage:
             "drives": self.get_drives(vin, limit=10000),
             "charges": self.get_charges(vin, limit=10000),
             "battery_health": self.get_battery_history(vin, limit=10000),
+        }
+
+    def get_setting(self, key: str, default: Optional[str] = None) -> Optional[str]:
+        conn = self._get_conn()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT value FROM settings WHERE key = ?", (key,))
+            row = cur.fetchone()
+            return row["value"] if row else default
+        finally:
+            conn.close()
+
+    def set_setting(self, key: str, value: str) -> None:
+        conn = self._get_conn()
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO settings (key, value, updated_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+            """, (key, value))
+            conn.commit()
+        finally:
+            conn.close()
+
+    def clear_all_data(self) -> Dict[str, int]:
+        """Clears all telemetry, drives, charges, and battery data."""
+        conn = self._get_conn()
+        deleted = {}
+        try:
+            cur = conn.cursor()
+            for table in ["drives", "charges", "battery_health", "live_telemetry", "idle_logs"]:
+                cur.execute(f"DELETE FROM {table}")
+                deleted[table] = cur.rowcount
+            conn.commit()
+            return deleted
+        finally:
+            conn.close()
+
+    def seed_demo_data(self, vin: str = "TESLA_MODEL_Y_LR") -> Dict[str, int]:
+        """Seeds realistic sample drives, charges, battery degradation, and live state."""
+        self.clear_all_data()
+
+        demo_drives = [
+            {"provider": "demo", "vin": vin, "started_at": "2026-06-10 08:30:00", "ended_at": "2026-06-10 09:25:00", "duration_s": 3300, "distance_km": 92.4, "energy_kwh": 14.8, "efficiency_wh_km": 160.2, "start_soc": 88.0, "end_soc": 68.0, "start_temp_c": 21.0, "end_temp_c": 24.0, "start_location": "Madrid Norte", "end_location": "Segovia Centro", "start_odometer_km": 32100.0, "end_odometer_km": 32192.4, "max_speed_kmh": 125.0},
+            {"provider": "demo", "vin": vin, "started_at": "2026-06-12 17:15:00", "ended_at": "2026-06-12 18:10:00", "duration_s": 3300, "distance_km": 91.8, "energy_kwh": 13.5, "efficiency_wh_km": 147.1, "start_soc": 80.0, "end_soc": 62.0, "start_temp_c": 26.0, "end_temp_c": 28.0, "start_location": "Segovia", "end_location": "Madrid", "start_odometer_km": 32250.0, "end_odometer_km": 32341.8, "max_speed_kmh": 122.0},
+            {"provider": "demo", "vin": vin, "started_at": "2026-06-15 10:00:00", "ended_at": "2026-06-15 10:50:00", "duration_s": 3000, "distance_km": 74.2, "energy_kwh": 11.6, "efficiency_wh_km": 156.3, "start_soc": 75.0, "end_soc": 59.0, "start_temp_c": 23.0, "end_temp_c": 25.0, "start_location": "Madrid", "end_location": "Toledo", "start_odometer_km": 32400.0, "end_odometer_km": 32474.2, "max_speed_kmh": 120.0},
+            {"provider": "demo", "vin": vin, "started_at": "2026-06-18 08:15:00", "ended_at": "2026-06-18 08:45:00", "duration_s": 1800, "distance_km": 24.5, "energy_kwh": 3.7, "efficiency_wh_km": 151.0, "start_soc": 70.0, "end_soc": 65.0, "start_temp_c": 20.0, "end_temp_c": 21.0, "start_location": "Casa", "end_location": "Oficina", "start_odometer_km": 32510.0, "end_odometer_km": 32534.5, "max_speed_kmh": 95.0},
+            {"provider": "demo", "vin": vin, "started_at": "2026-06-20 09:00:00", "ended_at": "2026-06-20 10:15:00", "duration_s": 4500, "distance_km": 115.0, "energy_kwh": 19.2, "efficiency_wh_km": 167.0, "start_soc": 95.0, "end_soc": 69.0, "start_temp_c": 19.0, "end_temp_c": 22.0, "start_location": "Madrid", "end_location": "Ávila Murallas", "start_odometer_km": 32600.0, "end_odometer_km": 32715.0, "max_speed_kmh": 128.0},
+        ]
+
+        demo_charges = [
+            {"provider": "demo", "vin": vin, "started_at": "2026-06-10 12:00:00", "ended_at": "2026-06-10 12:35:00", "duration_s": 2100, "energy_added_kwh": 38.5, "start_soc": 25.0, "end_soc": 78.0, "range_added_km": 255.0, "peak_kw": 175.0, "cost": 16.50, "location": "Tesla Supercharger Torrelodones", "is_fast_charge": 1},
+            {"provider": "demo", "vin": vin, "started_at": "2026-06-14 23:00:00", "ended_at": "2026-06-15 06:30:00", "duration_s": 27000, "energy_added_kwh": 22.4, "start_soc": 52.0, "end_soc": 80.0, "range_added_km": 145.0, "peak_kw": 7.4, "cost": 3.80, "location": "Wallbox Doméstico (Tarifa Valle)", "is_fast_charge": 0},
+            {"provider": "demo", "vin": vin, "started_at": "2026-06-17 18:30:00", "ended_at": "2026-06-17 19:05:00", "duration_s": 2100, "energy_added_kwh": 31.0, "start_soc": 30.0, "end_soc": 75.0, "range_added_km": 205.0, "peak_kw": 150.0, "cost": 13.20, "location": "Tesla Supercharger Getafe", "is_fast_charge": 1},
+            {"provider": "demo", "vin": vin, "started_at": "2026-06-21 14:00:00", "ended_at": "2026-06-21 18:00:00", "duration_s": 14400, "energy_added_kwh": 18.0, "start_soc": 60.0, "end_soc": 85.0, "range_added_km": 120.0, "peak_kw": 11.0, "cost": 0.0, "location": "Cargador Empresa (Gratis)", "is_fast_charge": 0},
+        ]
+
+        demo_battery = [
+            {"provider": "demo", "vin": vin, "timestamp": "2024-01-15 12:00:00", "capacity_kwh": 75.0, "original_capacity_kwh": 75.0, "degradation_pct": 0.0, "max_range_km": 505.0, "odometer_km": 1200.0},
+            {"provider": "demo", "vin": vin, "timestamp": "2024-07-20 12:00:00", "capacity_kwh": 74.3, "original_capacity_kwh": 75.0, "degradation_pct": 0.9, "max_range_km": 500.0, "odometer_km": 9400.0},
+            {"provider": "demo", "vin": vin, "timestamp": "2025-01-18 12:00:00", "capacity_kwh": 73.6, "original_capacity_kwh": 75.0, "degradation_pct": 1.9, "max_range_km": 495.0, "odometer_km": 17800.0},
+            {"provider": "demo", "vin": vin, "timestamp": "2025-07-22 12:00:00", "capacity_kwh": 73.0, "original_capacity_kwh": 75.0, "degradation_pct": 2.7, "max_range_km": 491.0, "odometer_km": 25100.0},
+            {"provider": "demo", "vin": vin, "timestamp": "2026-01-10 12:00:00", "capacity_kwh": 72.3, "original_capacity_kwh": 75.0, "degradation_pct": 3.6, "max_range_km": 486.0, "odometer_km": 30500.0},
+            {"provider": "demo", "vin": vin, "timestamp": "2026-06-20 12:00:00", "capacity_kwh": 71.7, "original_capacity_kwh": 75.0, "degradation_pct": 4.4, "max_range_km": 482.0, "odometer_km": 32750.0},
+        ]
+
+        n_drives = self.writer.write_drives(demo_drives)
+        n_charges = self.writer.write_charges(demo_charges)
+        n_battery = self.writer.write_battery_health(demo_battery)
+
+        self.insert_live_telemetry({
+            "vin": vin,
+            "timestamp": "2026-06-22 15:30:00",
+            "soc": 74.0,
+            "speed_kmh": 0.0,
+            "power_kw": 0.0,
+            "battery_temp_c": 24.5,
+            "odometer_km": 32750.0,
+            "charging_state": "STANDBY",
+            "latitude": 40.4168,
+            "longitude": -3.7038
+        })
+
+        return {
+            "drives": n_drives,
+            "charges": n_charges,
+            "battery": n_battery,
+            "live": 1
         }

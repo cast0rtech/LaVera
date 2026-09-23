@@ -184,5 +184,69 @@ class TestAllInOneAPI(unittest.TestCase):
             self.assertEqual(data["records_imported"], 1)
 
 
+    def test_07_demo_seed_and_clear(self):
+        # 1. Seed demo
+        req_seed = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/api/demo/seed",
+            data=b"{}",
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req_seed, timeout=3) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode())
+            self.assertEqual(data["status"], "success")
+            self.assertEqual(data["seeded"]["drives"], 5)
+
+        # 2. Check stats has data
+        url_stats = f"http://127.0.0.1:{self.port}/api/stats"
+        with urllib.request.urlopen(url_stats, timeout=3) as resp:
+            stats = json.loads(resp.read().decode())
+            self.assertEqual(stats["drives"]["total_count"], 5)
+            self.assertEqual(stats["charges"]["total_count"], 4)
+
+        # 3. Clear data
+        req_clear = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/api/data/clear",
+            data=b"{}",
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req_clear, timeout=3) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode())
+            self.assertEqual(data["status"], "success")
+
+        # 4. Check stats is 0 again
+        with urllib.request.urlopen(url_stats, timeout=3) as resp:
+            stats = json.loads(resp.read().decode())
+            self.assertEqual(stats["drives"]["total_count"], 0)
+
+    def test_08_sync_config(self):
+        body = json.dumps({"tessie_token": "test_token_12345", "tessie_auto_sync": True}).encode("utf-8")
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/api/sync/config",
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            self.assertEqual(resp.status, 200)
+
+        url_get = f"http://127.0.0.1:{self.port}/api/sync/config"
+        with urllib.request.urlopen(url_get, timeout=3) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode())
+            self.assertTrue(data["has_token"])
+            self.assertTrue(data["auto_sync"])
+
+    def test_09_db_info(self):
+        url = f"http://127.0.0.1:{self.port}/api/db/info"
+        with urllib.request.urlopen(url, timeout=3) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode())
+            self.assertIn("db_path", data)
+            self.assertIn("drives_count", data)
+
 if __name__ == "__main__":
     unittest.main()

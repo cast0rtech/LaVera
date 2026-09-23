@@ -21,6 +21,8 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, ".."))
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
 
 from importer.normalizer import parse_timestamp
 from importer.teslafi_parser import (
@@ -138,6 +140,8 @@ class LaVeraRequestHandler(SimpleHTTPRequestHandler):
         # Serve static web files
         if path == "/":
             self.path = "/index.html"
+        else:
+            self.path = path
         return super().do_GET()
 
     def do_POST(self):

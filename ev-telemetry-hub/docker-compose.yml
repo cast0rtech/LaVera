@@ -1,6 +1,36 @@
 version: '3.8'
 
 services:
+  # 0. Hub Web Offline y API REST
+  lavera-hub:
+    build:
+      context: .
+      dockerfile: Dockerfile.all-in-one
+    image: lavera-hub:all-in-one
+    container_name: lavera_hub
+    ports:
+      - "8080:8080"
+    environment:
+      - TZ=Europe/Zurich
+      - PORT=8080
+      - LAVERA_DB_PATH=/app/data/lavera.db
+      - POSTGRES_HOST=timescaledb
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=lavera
+      - POSTGRES_PASSWORD=LaVeraSecurePass2026!
+      - POSTGRES_DB=lavera_telemetry
+    volumes:
+      - ./data:/app/data
+    restart: always
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - telemetry_net
+
   # 1. Extractor Multimarca
   homeassistant:
     image: lscr.io/linuxserver/homeassistant:latest

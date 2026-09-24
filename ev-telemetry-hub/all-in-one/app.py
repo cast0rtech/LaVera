@@ -472,32 +472,39 @@ class LaVeraRequestHandler(SimpleHTTPRequestHandler):
                     except Exception as bat_err:
                         print(f"[!] Warning fetching battery: {bat_err}")
 
-                    # Fallback / Complementary Battery Calculation from state if 0 records imported
-                    if imported_stats["battery"] == 0 and 'state' in locals() and state:
+                    # Fallback / Complementary Battery Calculation from state & user configured factory capacity
+                    user_orig_cap = float(storage.get_setting("original_capacity_kwh", "75.0"))
+                    if 'state' in locals() and state:
                         try:
-                            charge_st = state.get("charge_state", {})
-                            vehicle_st = state.get("vehicle_state", {})
+                            charge_st = state.get("charge_state", {}) if isinstance(state, dict) else {}
+                            vehicle_st = state.get("vehicle_state", {}) if isinstance(state, dict) else {}
                             soc = safe_float(charge_st.get("battery_level") or charge_st.get("usable_battery_level"))
                             range_ideal = safe_float(charge_st.get("battery_range") or charge_st.get("est_battery_range"))
                             odo = safe_float(vehicle_st.get("odometer")) * 1.60934
+
+                            calc_cap = user_orig_cap * 0.96
+                            calc_100_range = round(user_orig_cap * 6.0, 1)
+
                             if soc > 5 and range_ideal > 20:
                                 calc_100_range = round((range_ideal / soc) * 100.0, 1)
-                                calc_cap = round(calc_100_range * 0.145, 1)
-                                orig_cap = 75.0
-                                deg_pct = round(max(0.0, ((orig_cap - calc_cap) / orig_cap) * 100.0), 1)
-                                import datetime
-                                now_ts = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-                                gen_record = [{
-                                    "provider": "tessie",
-                                    "vin": vin,
-                                    "timestamp": now_ts,
-                                    "capacity_kwh": calc_cap,
-                                    "original_capacity_kwh": orig_cap,
-                                    "degradation_pct": deg_pct,
-                                    "max_range_km": calc_100_range,
-                                    "odometer_km": odo,
-                                }]
-                                imported_stats["battery"] = storage.writer.write_battery_health(gen_record)
+                                calc_cap = round(min(user_orig_cap, calc_100_range * 0.145), 1)
+
+                            deg_pct = round(max(0.0, ((user_orig_cap - calc_cap) / user_orig_cap) * 100.0), 1)
+                            import datetime
+                            now_ts = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+                            gen_record = [{
+                                "provider": "tessie",
+                                "vin": vin,
+                                "timestamp": now_ts,
+                                "capacity_kwh": calc_cap,
+                                "original_capacity_kwh": user_orig_cap,
+                                "degradation_pct": deg_pct,
+                                "max_range_km": calc_100_range,
+                                "odometer_km": odo,
+                            }]
+                            n_written = storage.writer.write_battery_health(gen_record)
+                            if imported_stats["battery"] == 0:
+                                imported_stats["battery"] = n_written
                         except Exception as gen_err:
                             print(f"[!] Battery auto-calc error: {gen_err}")
 

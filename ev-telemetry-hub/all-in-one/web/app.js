@@ -540,13 +540,14 @@ async function loadBattery() {
         const drivesRes = await fetch("/api/drives?limit=50");
         if (drivesRes.ok) {
           const drivesData = await drivesRes.json();
-          if (drivesData && drivesData.length > 0) {
-            const origCap = 75.0; // kWh factory capacity
-            history = drivesData.slice(0, 30).reverse().map(d => {
+          const drives = Array.isArray(drivesData) ? drivesData : (drivesData.items || []);
+          if (drives && drives.length > 0) {
+            const origCap = parseFloat(document.getElementById("input-orig-cap")?.value || 75.0);
+            history = drives.slice(0, 30).reverse().map(d => {
               const odo = d.end_odometer_km || d.start_odometer_km || 0;
               const degPct = Math.min(14.0, Math.max(0.8, Number(((odo / 195000) * 8.2).toFixed(1))));
               const currCap = Number((origCap * (1 - degPct / 100.0)).toFixed(1));
-              const maxRange = Math.round(450 * (1 - degPct / 100.0));
+              const maxRange = Math.round(origCap * (1 - degPct / 100.0) * 6.0);
 
               return {
                 timestamp: d.started_at,
@@ -560,7 +561,9 @@ async function loadBattery() {
             });
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error("Error generating fallback battery history:", e);
+      }
     }
 
     if (!history || history.length === 0) {

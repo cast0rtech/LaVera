@@ -505,31 +505,56 @@ def parse_tessie_battery_health(data_or_text: Any, vin: str = "TESLA_DEFAULT") -
     if isinstance(data_or_text, (dict, list)):
         raw_list = _extract_list_from_json(data_or_text, "battery_health")
         for item in raw_list:
-            ts = parse_timestamp(item.get("timestamp") or item.get("date") or item.get("created_at"))
+            import datetime
+            ts = parse_timestamp(item.get("timestamp") or item.get("date") or item.get("created_at") or item.get("time"))
             if not ts:
-                continue
-            cap = safe_float(item.get("capacity_kwh") or item.get("usable_capacity"))
-            orig = safe_float(item.get("original_capacity_kwh") or item.get("original_capacity")) or cap
-            deg = safe_float(item.get("degradation_percent") or item.get("degradation_pct") or item.get("degradation"))
+                ts = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+            # Support nested charge_state & vehicle_state from Tessie state object
+            charge_st = item.get("charge_state", {}) if isinstance(item.get("charge_state"), dict) else {}
+            vehicle_st = item.get("vehicle_state", {}) if isinstance(item.get("vehicle_state"), dict) else {}
+
+            cap = safe_float(
+                item.get("capacity_kwh") or item.get("usable_capacity") or item.get("battery_capacity") or item.get("capacity")
+            )
+            orig = safe_float(
+                item.get("original_capacity_kwh") or item.get("original_capacity") or item.get("factory_capacity")
+            )
+
+            # If capacity not direct, compute from charge_state ideal range & SoC
+            if cap == 0 and charge_st:
+                soc = safe_float(charge_st.get("battery_level") or charge_st.get("usable_battery_level"))
+                b_range = safe_float(charge_st.get("battery_range") or charge_st.get("est_battery_range"))
+                if soc > 5 and b_range > 20:
+                    ideal_100_range = (b_range / soc) * 100.0
+                    cap = round(ideal_100_range * 0.145, 1)
+
+            if orig == 0:
+                orig = 75.0 if cap == 0 else cap
+
+            deg = safe_float(
+                item.get("degradation_percent") or item.get("degradation_pct") or item.get("degradation") or item.get("battery_degradation")
+            )
             if deg == 0 and orig > 0 and cap > 0 and orig >= cap:
                 deg = round(((orig - cap) / orig) * 100.0, 1)
 
             unit = str(item.get("distance_unit") or item.get("unit") or "").lower()
-            raw_range = safe_float(item.get("max_range_km") or item.get("range"))
+            raw_range = safe_float(item.get("max_range_km") or item.get("range") or item.get("max_range") or charge_st.get("battery_range"))
             range_km = raw_range if "km" in unit else miles_to_km(raw_range)
-            raw_odo = safe_float(item.get("odometer") or item.get("odometer_km"))
+            raw_odo = safe_float(item.get("odometer") or item.get("odometer_km") or vehicle_st.get("odometer"))
             odo_km = raw_odo if "km" in unit else miles_to_km(raw_odo)
 
-            records.append({
-                "provider": "tessie",
-                "vin": vin,
-                "timestamp": ts,
-                "capacity_kwh": cap,
-                "original_capacity_kwh": orig,
-                "degradation_pct": deg,
-                "max_range_km": range_km,
-                "odometer_km": odo_km,
-            })
+            if cap > 0 or deg > 0 or range_km > 0:
+                records.append({
+                    "provider": "tessie",
+                    "vin": vin,
+                    "timestamp": ts,
+                    "capacity_kwh": cap,
+                    "original_capacity_kwh": orig,
+                    "degradation_pct": deg,
+                    "max_range_km": range_km,
+                    "odometer_km": odo_km,
+                })
         return records
 
     text_content = data_or_text if isinstance(data_or_text, str) else str(data_or_text)

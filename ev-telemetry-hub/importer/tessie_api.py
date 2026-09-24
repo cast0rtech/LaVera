@@ -118,17 +118,25 @@ class TessieAPIClient:
 
     def get_battery_health(self, vin: str) -> List[Dict[str, Any]]:
         """Retrieves battery health and degradation history for a VIN from multiple Tessie API endpoints with fallbacks."""
-        endpoints = [f"{vin}/battery_health", f"{vin}/battery", f"{vin}/battery_degradation", f"{vin}/battery_capacity"]
+        endpoints = [
+            f"{vin}/battery/health",
+            f"{vin}/battery",
+            f"{vin}/battery/degradation",
+            f"{vin}/battery/capacity",
+            f"{vin}/battery_health",
+            f"{vin}/battery_degradation",
+            f"{vin}/state"
+        ]
         for ep in endpoints:
             try:
                 data = self._request(ep)
                 if isinstance(data, list) and len(data) > 0:
                     return data
                 if isinstance(data, dict):
-                    for k in ["results", "battery_health", "battery", "data", "history"]:
+                    for k in ["results", "battery_health", "battery", "data", "history", "degradation_history"]:
                         if k in data and isinstance(data[k], list) and len(data[k]) > 0:
                             return data[k]
-                    if any(key in data for key in ["capacity_kwh", "degradation_percent", "usable_capacity", "original_capacity", "degradation", "max_range"]):
+                    if any(key in data for key in ["capacity_kwh", "degradation_percent", "usable_capacity", "original_capacity", "degradation", "max_range", "charge_state"]):
                         return [data]
             except Exception as e:
                 logger.debug(f"Tessie battery endpoint {ep} failed: {e}")

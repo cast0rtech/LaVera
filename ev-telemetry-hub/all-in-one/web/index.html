@@ -154,6 +154,38 @@
             <h3 data-i18n="drives_title">Histórico de Conducciones</h3>
             <span class="card-action" id="drives-count-badge">0 <span data-i18n="drives_shown">viajes mostrados</span></span>
           </div>
+
+          <!-- Filter & Analytics Toolbar for Drives -->
+          <div class="filter-toolbar">
+            <div class="filter-group">
+              <input type="text" id="drives-search" class="input-sm filter-search" placeholder="🔍 Buscar por origen, destino..." data-i18n="placeholder_search_drives">
+            </div>
+            <div class="filter-group date-group">
+              <label data-i18n="lbl_from">Desde:</label>
+              <input type="datetime-local" id="drives-start-date" class="input-sm">
+              <label data-i18n="lbl_to">Hasta:</label>
+              <input type="datetime-local" id="drives-end-date" class="input-sm">
+            </div>
+            <div class="filter-group">
+              <select id="drives-limit" class="lang-select">
+                <option value="50">50 / pág</option>
+                <option value="100">100 / pág</option>
+                <option value="250">250 / pág</option>
+                <option value="0" data-i18n="opt_all">Todos</option>
+              </select>
+              <button class="btn btn-sm btn-primary" id="btn-filter-drives" data-i18n="btn_filter">🔍 Filtrar</button>
+              <button class="btn btn-sm btn-outline" id="btn-clear-drives" data-i18n="btn_clear">❌ Limpiar</button>
+            </div>
+          </div>
+
+          <!-- Analytics Summary Banner for Filtered Drives -->
+          <div class="analytics-banner" id="drives-analytics-banner" style="display: none;">
+            <div class="analytics-item"><span class="label" data-i18n="analytics_period_dist">Distancia Período:</span> <strong id="ana-drives-dist">-- km</strong></div>
+            <div class="analytics-item"><span class="label" data-i18n="analytics_period_energy">Consumo:</span> <strong id="ana-drives-energy">-- kWh</strong></div>
+            <div class="analytics-item"><span class="label" data-i18n="analytics_period_eff">Eficiencia Media:</span> <strong id="ana-drives-eff">-- Wh/km</strong></div>
+            <div class="analytics-item"><span class="label" data-i18n="analytics_period_autopilot">Autopilot:</span> <strong id="ana-drives-ap">-- km</strong></div>
+          </div>
+
           <div class="table-responsive">
             <table class="data-table" id="table-drives">
               <thead>
@@ -166,13 +198,21 @@
                   <th data-i18n="th_efficiency">Eficiencia</th>
                   <th data-i18n="th_soc">SoC Batería</th>
                   <th data-i18n="th_autopilot">🤖 Piloto Automático</th>
-                  <th data-i18n="th_source">Origen</th>
+                  <th data-i18n="th_actions">🗺️ Mapas / Exportar</th>
                 </tr>
               </thead>
               <tbody>
                 <tr><td colspan="9" class="text-center" data-i18n="drives_empty">No hay registros de conducción. Importa datos de Tessie o TeslaFi.</td></tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Pagination Bar -->
+          <div class="pagination-bar" id="drives-pagination">
+            <button class="btn btn-xs btn-outline" id="btn-prev-drives">◀ <span data-i18n="btn_prev">Anterior</span></button>
+            <span class="pagination-info" id="drives-page-info">Página 1</span>
+            <button class="btn btn-xs btn-outline" id="btn-next-drives"><span data-i18n="btn_next">Siguiente</span> ▶</button>
+            <button class="btn btn-xs btn-primary" id="btn-more-drives" data-i18n="btn_load_more">📥 Cargar Más (Scroll)</button>
           </div>
         </div>
       </section>
@@ -184,12 +224,43 @@
             <h3 data-i18n="charges_title">Sesiones de Carga</h3>
             <span class="card-action" id="charges-count-badge">0 <span data-i18n="charges_shown">cargas mostradas</span></span>
           </div>
+
+          <!-- Filter & Analytics Toolbar for Charges -->
+          <div class="filter-toolbar">
+            <div class="filter-group">
+              <input type="text" id="charges-search" class="input-sm filter-search" placeholder="🔍 Buscar ubicación de carga..." data-i18n="placeholder_search_charges">
+            </div>
+            <div class="filter-group date-group">
+              <label data-i18n="lbl_from">Desde:</label>
+              <input type="datetime-local" id="charges-start-date" class="input-sm">
+              <label data-i18n="lbl_to">Hasta:</label>
+              <input type="datetime-local" id="charges-end-date" class="input-sm">
+            </div>
+            <div class="filter-group">
+              <select id="charges-limit" class="lang-select">
+                <option value="50">50 / pág</option>
+                <option value="100">100 / pág</option>
+                <option value="250">250 / pág</option>
+                <option value="0" data-i18n="opt_all">Todos</option>
+              </select>
+              <button class="btn btn-sm btn-primary" id="btn-filter-charges" data-i18n="btn_filter">🔍 Filtrar</button>
+              <button class="btn btn-sm btn-outline" id="btn-clear-charges" data-i18n="btn_clear">❌ Limpiar</button>
+            </div>
+          </div>
+
+          <!-- Analytics Summary Banner for Filtered Charges -->
+          <div class="analytics-banner" id="charges-analytics-banner" style="display: none;">
+            <div class="analytics-item"><span class="label" data-i18n="analytics_period_energy_added">Energía Añadida:</span> <strong id="ana-charges-energy">-- kWh</strong></div>
+            <div class="analytics-item"><span class="label" data-i18n="analytics_period_cost">Coste Total:</span> <strong id="ana-charges-cost">-- $</strong></div>
+            <div class="analytics-item"><span class="label" data-i18n="analytics_period_types">Cargas Rápidas / AC:</span> <strong id="ana-charges-types">-- Fast / -- AC</strong></div>
+          </div>
+
           <div class="table-responsive">
             <table class="data-table" id="table-charges">
               <thead>
                 <tr>
                   <th data-i18n="th_datetime">Fecha & Hora</th>
-                  <th data-i18n="th_location">Ubicación</th>
+                  <th data-i18n="th_location">Ubicación & Mapa</th>
                   <th data-i18n="th_energy_added">Energía Añadida</th>
                   <th data-i18n="th_range_added">Rango Ganado</th>
                   <th data-i18n="th_peak_power">Potencia Máx</th>
@@ -202,6 +273,14 @@
                 <tr><td colspan="8" class="text-center" data-i18n="charges_empty">No hay sesiones de carga registradas.</td></tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Pagination Bar -->
+          <div class="pagination-bar" id="charges-pagination">
+            <button class="btn btn-xs btn-outline" id="btn-prev-charges">◀ <span data-i18n="btn_prev">Anterior</span></button>
+            <span class="pagination-info" id="charges-page-info">Página 1</span>
+            <button class="btn btn-xs btn-outline" id="btn-next-charges"><span data-i18n="btn_next">Siguiente</span> ▶</button>
+            <button class="btn btn-xs btn-primary" id="btn-more-charges" data-i18n="btn_load_more">📥 Cargar Más (Scroll)</button>
           </div>
         </div>
       </section>

@@ -835,3 +835,123 @@ body {
   margin-bottom: 18px;
 }
 
+/* Filter Toolbar */
+.filter-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(10, 14, 23, 0.6);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-search {
+  min-width: 220px;
+  background: rgba(18, 24, 38, 0.9);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.date-group {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.date-group input[type="datetime-local"] {
+  background: rgba(18, 24, 38, 0.9);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  padding: 4px 8px;
+  font-size: 0.82rem;
+}
+
+/* Analytics Summary Banner */
+.analytics-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 10px 16px;
+  background: linear-gradient(90deg, rgba(0, 210, 255, 0.08), rgba(0, 230, 118, 0.08));
+  border-bottom: 1px solid rgba(0, 210, 255, 0.2);
+  font-size: 0.85rem;
+}
+
+.analytics-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.analytics-item .label {
+  color: var(--text-muted);
+}
+
+.analytics-item strong {
+  color: var(--accent-cyan);
+}
+
+/* Pagination Bar */
+.pagination-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(10, 14, 23, 0.6);
+  border-top: 1px solid var(--border-color);
+  font-size: 0.85rem;
+}
+
+.pagination-info {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* Map Action Links */
+.map-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent-cyan);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.78rem;
+  padding: 2px 6px;
+  background: rgba(0, 210, 255, 0.1);
+  border: 1px solid rgba(0, 210, 255, 0.3);
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.map-link-btn:hover {
+  background: var(--accent-cyan);
+  color: #040810;
+  box-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
+}
+
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  text-decoration: none;
+  margin-left: 4px;
+}
+
+

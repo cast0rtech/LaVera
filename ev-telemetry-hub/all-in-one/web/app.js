@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initOnlineSync();
   initQuickActions();
   initVehicleConfig();
+  initFilterToolbars();
   loadAllData();
 
   // Auto-refresh stats every 30 seconds
@@ -211,16 +212,188 @@ async function loadStats() {
   }
 }
 
+// Pagination & Filter States
+let drivesState = { offset: 0, limit: 50, search: "", startDate: "", endDate: "" };
+let chargesState = { offset: 0, limit: 50, search: "", startDate: "", endDate: "" };
+
+function initFilterToolbars() {
+  // Drives Toolbar Handlers
+  const btnFilterDrives = document.getElementById("btn-filter-drives");
+  const btnClearDrives = document.getElementById("btn-clear-drives");
+  const drivesSearch = document.getElementById("drives-search");
+  const drivesStart = document.getElementById("drives-start-date");
+  const drivesEnd = document.getElementById("drives-end-date");
+  const drivesLimit = document.getElementById("drives-limit");
+  const btnPrevDrives = document.getElementById("btn-prev-drives");
+  const btnNextDrives = document.getElementById("btn-next-drives");
+  const btnMoreDrives = document.getElementById("btn-more-drives");
+
+  if (btnFilterDrives) {
+    btnFilterDrives.addEventListener("click", () => {
+      drivesState.search = drivesSearch?.value || "";
+      drivesState.startDate = drivesStart?.value ? drivesStart.value.replace("T", " ") : "";
+      drivesState.endDate = drivesEnd?.value ? drivesEnd.value.replace("T", " ") : "";
+      drivesState.limit = parseInt(drivesLimit?.value || 50);
+      drivesState.offset = 0;
+      loadDrives();
+    });
+  }
+
+  if (btnClearDrives) {
+    btnClearDrives.addEventListener("click", () => {
+      if (drivesSearch) drivesSearch.value = "";
+      if (drivesStart) drivesStart.value = "";
+      if (drivesEnd) drivesEnd.value = "";
+      if (drivesLimit) drivesLimit.value = "50";
+      drivesState = { offset: 0, limit: 50, search: "", startDate: "", endDate: "" };
+      loadDrives();
+    });
+  }
+
+  if (drivesLimit) {
+    drivesLimit.addEventListener("change", () => {
+      drivesState.limit = parseInt(drivesLimit.value);
+      drivesState.offset = 0;
+      loadDrives();
+    });
+  }
+
+  if (btnPrevDrives) {
+    btnPrevDrives.addEventListener("click", () => {
+      if (drivesState.offset > 0) {
+        drivesState.offset = Math.max(0, drivesState.offset - (drivesState.limit || 50));
+        loadDrives();
+      }
+    });
+  }
+
+  if (btnNextDrives) {
+    btnNextDrives.addEventListener("click", () => {
+      drivesState.offset += (drivesState.limit || 50);
+      loadDrives();
+    });
+  }
+
+  if (btnMoreDrives) {
+    btnMoreDrives.addEventListener("click", () => {
+      drivesState.limit = (drivesState.limit || 50) + 50;
+      loadDrives();
+    });
+  }
+
+  // Charges Toolbar Handlers
+  const btnFilterCharges = document.getElementById("btn-filter-charges");
+  const btnClearCharges = document.getElementById("btn-clear-charges");
+  const chargesSearch = document.getElementById("charges-search");
+  const chargesStart = document.getElementById("charges-start-date");
+  const chargesEnd = document.getElementById("charges-end-date");
+  const chargesLimit = document.getElementById("charges-limit");
+  const btnPrevCharges = document.getElementById("btn-prev-charges");
+  const btnNextCharges = document.getElementById("btn-next-charges");
+  const btnMoreCharges = document.getElementById("btn-more-charges");
+
+  if (btnFilterCharges) {
+    btnFilterCharges.addEventListener("click", () => {
+      chargesState.search = chargesSearch?.value || "";
+      chargesState.startDate = chargesStart?.value ? chargesStart.value.replace("T", " ") : "";
+      chargesState.endDate = chargesEnd?.value ? chargesEnd.value.replace("T", " ") : "";
+      chargesState.limit = parseInt(chargesLimit?.value || 50);
+      chargesState.offset = 0;
+      loadCharges();
+    });
+  }
+
+  if (btnClearCharges) {
+    btnClearCharges.addEventListener("click", () => {
+      if (chargesSearch) chargesSearch.value = "";
+      if (chargesStart) chargesStart.value = "";
+      if (chargesEnd) chargesEnd.value = "";
+      if (chargesLimit) chargesLimit.value = "50";
+      chargesState = { offset: 0, limit: 50, search: "", startDate: "", endDate: "" };
+      loadCharges();
+    });
+  }
+
+  if (chargesLimit) {
+    chargesLimit.addEventListener("change", () => {
+      chargesState.limit = parseInt(chargesLimit.value);
+      chargesState.offset = 0;
+      loadCharges();
+    });
+  }
+
+  if (btnPrevCharges) {
+    btnPrevCharges.addEventListener("click", () => {
+      if (chargesState.offset > 0) {
+        chargesState.offset = Math.max(0, chargesState.offset - (chargesState.limit || 50));
+        loadCharges();
+      }
+    });
+  }
+
+  if (btnNextCharges) {
+    btnNextCharges.addEventListener("click", () => {
+      chargesState.offset += (chargesState.limit || 50);
+      loadCharges();
+    });
+  }
+
+  if (btnMoreCharges) {
+    btnMoreCharges.addEventListener("click", () => {
+      chargesState.limit = (chargesState.limit || 50) + 50;
+      loadCharges();
+    });
+  }
+}
+
 async function loadDrives() {
   try {
-    const res = await fetch("/api/drives?limit=50");
+    const query = new URLSearchParams({
+      limit: drivesState.limit,
+      offset: drivesState.offset,
+      search: drivesState.search,
+      start_date: drivesState.startDate,
+      end_date: drivesState.endDate,
+    });
+    const res = await fetch(`/api/drives?${query.toString()}`);
     if (!res.ok) return;
-    const drives = await res.json();
+    const resData = await res.json();
+    const drives = resData.items || (Array.isArray(resData) ? resData : []);
+    const total = resData.total !== undefined ? resData.total : drives.length;
+    const analytics = resData.analytics || {};
 
     const t = window.i18n ? window.i18n.t : (k => k);
     const tbody = document.querySelector("#table-drives tbody");
     const countBadge = document.getElementById("drives-count-badge");
-    if (countBadge) countBadge.innerText = `${drives.length} ${t("drives_shown")}`;
+    if (countBadge) {
+      countBadge.innerText = `${drives.length} / ${total} ${t("drives_shown")}`;
+    }
+
+    // Update Analytics Banner for filtered range
+    const anaBanner = document.getElementById("drives-analytics-banner");
+    if (anaBanner) {
+      if (total > 0) {
+        anaBanner.style.display = "flex";
+        document.getElementById("ana-drives-dist").innerText = `${analytics.total_distance_km || 0} km`;
+        document.getElementById("ana-drives-energy").innerText = `${analytics.total_energy_kwh || 0} kWh`;
+        document.getElementById("ana-drives-eff").innerText = `${analytics.avg_efficiency_wh_km || 0} Wh/km`;
+        document.getElementById("ana-drives-ap").innerText = `${analytics.total_autopilot_km || 0} km`;
+      } else {
+        anaBanner.style.display = "none";
+      }
+    }
+
+    // Update Pagination Info
+    const limit = drivesState.limit || 50;
+    const currentPage = limit > 0 ? Math.floor(drivesState.offset / limit) + 1 : 1;
+    const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+    const pageInfo = document.getElementById("drives-page-info");
+    if (pageInfo) pageInfo.innerText = `Página ${currentPage} de ${totalPages || 1} (${total} registros)`;
+
+    const btnPrev = document.getElementById("btn-prev-drives");
+    const btnNext = document.getElementById("btn-next-drives");
+    if (btnPrev) btnPrev.disabled = drivesState.offset <= 0;
+    if (btnNext) btnNext.disabled = limit > 0 ? (drivesState.offset + limit >= total) : true;
 
     if (drives.length === 0) {
       tbody.innerHTML = `<tr><td colspan="9" class="text-center">${t("drives_empty")}</td></tr>`;
@@ -228,7 +401,9 @@ async function loadDrives() {
     }
 
     tbody.innerHTML = drives.map(d => {
-      const fromTo = (d.start_location || "Desconocido") + " → " + (d.end_location || "Desconocido");
+      const startLoc = d.start_location || "Origen";
+      const endLoc = d.end_location || "Destino";
+      const fromTo = `${startLoc} → ${endLoc}`;
       const durationMin = Math.round((d.duration_s || 0) / 60);
       const socChange = `${d.start_soc}% → ${d.end_soc}%`;
 
@@ -237,6 +412,16 @@ async function loadDrives() {
       const apBadge = (apPct > 0 || apKm > 0)
         ? `<span class="badge vehicle-badge">🤖 ${apPct > 0 ? apPct + '%' : ''} (${apKm} km)</span>`
         : `<span class="badge" style="opacity:0.6;">Manual</span>`;
+
+      // Map link & GPX/KML Exporters
+      const gmapsDir = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(startLoc)}&destination=${encodeURIComponent(endLoc)}`;
+      const actionsHtml = `
+        <div style="display:flex; gap:4px; align-items:center;">
+          <a href="${gmapsDir}" target="_blank" class="map-link-btn" title="Abrir en Google Maps">🗺️ Mapa</a>
+          <a href="/api/drives/export?id=${d.id}&format=gpx" class="btn btn-xs btn-outline export-btn" download>📥 GPX</a>
+          <a href="/api/drives/export?id=${d.id}&format=kml" class="btn btn-xs btn-outline export-btn" download>📥 KML</a>
+        </div>
+      `;
 
       return `
         <tr>
@@ -248,7 +433,7 @@ async function loadDrives() {
           <td>${d.efficiency_wh_km} Wh/km</td>
           <td>${socChange}</td>
           <td>${apBadge}</td>
-          <td><span class="badge info">${(d.provider || "Auto").toUpperCase()}</span></td>
+          <td>${actionsHtml}</td>
         </tr>
       `;
     }).join("");
@@ -259,14 +444,51 @@ async function loadDrives() {
 
 async function loadCharges() {
   try {
-    const res = await fetch("/api/charges?limit=50");
+    const query = new URLSearchParams({
+      limit: chargesState.limit,
+      offset: chargesState.offset,
+      search: chargesState.search,
+      start_date: chargesState.startDate,
+      end_date: chargesState.endDate,
+    });
+    const res = await fetch(`/api/charges?${query.toString()}`);
     if (!res.ok) return;
-    const charges = await res.json();
+    const resData = await res.json();
+    const charges = resData.items || (Array.isArray(resData) ? resData : []);
+    const total = resData.total !== undefined ? resData.total : charges.length;
+    const analytics = resData.analytics || {};
 
     const t = window.i18n ? window.i18n.t : (k => k);
     const tbody = document.querySelector("#table-charges tbody");
     const countBadge = document.getElementById("charges-count-badge");
-    if (countBadge) countBadge.innerText = `${charges.length} ${t("charges_shown")}`;
+    if (countBadge) {
+      countBadge.innerText = `${charges.length} / ${total} ${t("charges_shown")}`;
+    }
+
+    // Update Analytics Banner for filtered charges
+    const anaBanner = document.getElementById("charges-analytics-banner");
+    if (anaBanner) {
+      if (total > 0) {
+        anaBanner.style.display = "flex";
+        document.getElementById("ana-charges-energy").innerText = `${analytics.total_energy_added_kwh || 0} kWh`;
+        document.getElementById("ana-charges-cost").innerText = `$${(analytics.total_cost || 0).toFixed(2)}`;
+        document.getElementById("ana-charges-types").innerText = `${analytics.fast_charges || 0} Fast / ${analytics.slow_charges || 0} AC`;
+      } else {
+        anaBanner.style.display = "none";
+      }
+    }
+
+    // Update Pagination Info
+    const limit = chargesState.limit || 50;
+    const currentPage = limit > 0 ? Math.floor(chargesState.offset / limit) + 1 : 1;
+    const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+    const pageInfo = document.getElementById("charges-page-info");
+    if (pageInfo) pageInfo.innerText = `Página ${currentPage} de ${totalPages || 1} (${total} registros)`;
+
+    const btnPrev = document.getElementById("btn-prev-charges");
+    const btnNext = document.getElementById("btn-next-charges");
+    if (btnPrev) btnPrev.disabled = chargesState.offset <= 0;
+    if (btnNext) btnNext.disabled = limit > 0 ? (chargesState.offset + limit >= total) : true;
 
     if (charges.length === 0) {
       tbody.innerHTML = `<tr><td colspan="8" class="text-center">${t("charges_empty")}</td></tr>`;
@@ -274,12 +496,21 @@ async function loadCharges() {
     }
 
     tbody.innerHTML = charges.map(c => {
+      const locName = c.location || "Punto de Carga";
+      const gmapsSearch = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locName)}`;
+      const locCell = `
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+          <span>${locName}</span>
+          <a href="${gmapsSearch}" target="_blank" class="map-link-btn" title="Abrir ubicación en Google Maps">🗺️ Mapa</a>
+        </div>
+      `;
+
       const socChange = `${c.start_soc}% → ${c.end_soc}%`;
       const isFast = c.is_fast_charge ? `<span class="badge vehicle-badge">${t("fast_charge")}</span>` : `<span class="badge">${t("slow_charge")}</span>`;
       return `
         <tr>
           <td>${formatDate(c.started_at)}</td>
-          <td>${c.location || "Punto de Carga"}</td>
+          <td>${locCell}</td>
           <td><strong>${c.energy_added_kwh} kWh</strong></td>
           <td>+${c.range_added_km} km</td>
           <td>${c.peak_kw ? c.peak_kw + " kW" : "--"}</td>

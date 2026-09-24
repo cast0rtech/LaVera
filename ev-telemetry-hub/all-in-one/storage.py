@@ -184,38 +184,169 @@ class OfflineStorage:
         finally:
             conn.close()
 
-    def get_drives(self, vin: Optional[str] = None, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+    def get_drives(self, vin: Optional[str] = None,
+                   start_date: Optional[str] = None,
+                   end_date: Optional[str] = None,
+                   search: Optional[str] = None,
+                   limit: int = 50,
+                   offset: int = 0,
+                   return_dict: bool = False) -> Any:
         conn = self._get_conn()
         try:
             cur = conn.cursor()
-            vin_clause = "WHERE vin = ?" if vin else ""
-            params = (vin, limit, offset) if vin else (limit, offset)
+            conditions = []
+            params = []
+
+            if vin:
+                conditions.append("vin = ?")
+                params.append(vin)
+            if start_date:
+                conditions.append("started_at >= ?")
+                params.append(start_date)
+            if end_date:
+                conditions.append("started_at <= ?")
+                params.append(end_date)
+            if search:
+                conditions.append("(start_location LIKE ? OR end_location LIKE ? OR provider LIKE ?)")
+                search_param = f"%{search}%"
+                params.extend([search_param, search_param, search_param])
+
+            where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
+
+            # Total matching count & analytics summary
             cur.execute(f"""
+                SELECT COUNT(*) as total_count,
+                       COALESCE(SUM(distance_km), 0) as total_distance_km,
+                       COALESCE(SUM(energy_kwh), 0) as total_energy_kwh,
+                       COALESCE(AVG(CASE WHEN efficiency_wh_km > 0 THEN efficiency_wh_km ELSE NULL END), 0) as avg_efficiency_wh_km,
+                       COALESCE(SUM(autopilot_km), 0) as total_autopilot_km
+                FROM drives {where_clause}
+            """, params)
+            agg_row = cur.fetchone()
+            total_count = agg_row["total_count"] if agg_row else 0
+
+            # Fetch paginated rows
+            query = f"""
                 SELECT id, provider, vin, started_at, ended_at, duration_s, distance_km,
                        energy_kwh, efficiency_wh_km, start_soc, end_soc, start_location,
-                       end_location, start_odometer_km, end_odometer_km
-                FROM drives {vin_clause}
+                       end_location, start_odometer_km, end_odometer_km,
+                       autopilot_km, autopilot_pct, raw_json
+                FROM drives {where_clause}
                 ORDER BY started_at DESC
-                LIMIT ? OFFSET ?
-            """, params)
-            return [dict(r) for r in cur.fetchall()]
+            """
+            if limit > 0:
+                query += " LIMIT ? OFFSET ?"
+                fetch_params = params + [limit, offset]
+            else:
+                fetch_params = params
+
+            cur.execute(query, fetch_params)
+            items = [dict(r) for r in cur.fetchall()]
+
+            if return_dict:
+                return {
+                    "items": items,
+                    "total": total_count,
+                    "limit": limit,
+                    "offset": offset,
+                    "analytics": {
+                        "total_distance_km": round(agg_row["total_distance_km"], 1) if agg_row else 0.0,
+                        "total_energy_kwh": round(agg_row["total_energy_kwh"], 1) if agg_row else 0.0,
+                        "avg_efficiency_wh_km": round(agg_row["avg_efficiency_wh_km"], 1) if agg_row else 0.0,
+                        "total_autopilot_km": round(agg_row["total_autopilot_km"], 1) if agg_row else 0.0,
+                    }
+                }
+            return items
         finally:
             conn.close()
 
-    def get_charges(self, vin: Optional[str] = None, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+    def get_drive_by_id(self, drive_id: int) -> Optional[Dict[str, Any]]:
         conn = self._get_conn()
         try:
             cur = conn.cursor()
-            vin_clause = "WHERE vin = ?" if vin else ""
-            params = (vin, limit, offset) if vin else (limit, offset)
+            cur.execute("""
+                SELECT id, provider, vin, started_at, ended_at, duration_s, distance_km,
+                       energy_kwh, efficiency_wh_km, start_soc, end_soc, start_location,
+                       end_location, start_odometer_km, end_odometer_km,
+                       autopilot_km, autopilot_pct, raw_json
+                FROM drives WHERE id = ?
+            """, (drive_id,))
+            row = cur.fetchone()
+            return dict(row) if row else None
+        finally:
+            conn.close()
+
+    def get_charges(self, vin: Optional[str] = None,
+                    start_date: Optional[str] = None,
+                    end_date: Optional[str] = None,
+                    search: Optional[str] = None,
+                    limit: int = 50,
+                    offset: int = 0,
+                    return_dict: bool = False) -> Any:
+        conn = self._get_conn()
+        try:
+            cur = conn.cursor()
+            conditions = []
+            params = []
+
+            if vin:
+                conditions.append("vin = ?")
+                params.append(vin)
+            if start_date:
+                conditions.append("started_at >= ?")
+                params.append(start_date)
+            if end_date:
+                conditions.append("started_at <= ?")
+                params.append(end_date)
+            if search:
+                conditions.append("(location LIKE ? OR provider LIKE ?)")
+                search_param = f"%{search}%"
+                params.extend([search_param, search_param])
+
+            where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
+
+            # Total matching count & analytics summary
             cur.execute(f"""
-                SELECT id, provider, vin, started_at, ended_at, duration_s, energy_added_kwh,
-                       start_soc, end_soc, range_added_km, peak_kw, cost, location, is_fast_charge
-                FROM charges {vin_clause}
-                ORDER BY started_at DESC
-                LIMIT ? OFFSET ?
+                SELECT COUNT(*) as total_count,
+                       COALESCE(SUM(energy_added_kwh), 0) as total_energy_added_kwh,
+                       COALESCE(SUM(cost), 0) as total_cost,
+                       SUM(CASE WHEN is_fast_charge = 1 THEN 1 ELSE 0 END) as fast_charges,
+                       SUM(CASE WHEN is_fast_charge = 0 THEN 1 ELSE 0 END) as slow_charges
+                FROM charges {where_clause}
             """, params)
-            return [dict(r) for r in cur.fetchall()]
+            agg_row = cur.fetchone()
+            total_count = agg_row["total_count"] if agg_row else 0
+
+            # Fetch paginated rows
+            query = f"""
+                SELECT id, provider, vin, started_at, ended_at, duration_s, energy_added_kwh,
+                       start_soc, end_soc, range_added_km, peak_kw, cost, location, is_fast_charge, raw_json
+                FROM charges {where_clause}
+                ORDER BY started_at DESC
+            """
+            if limit > 0:
+                query += " LIMIT ? OFFSET ?"
+                fetch_params = params + [limit, offset]
+            else:
+                fetch_params = params
+
+            cur.execute(query, fetch_params)
+            items = [dict(r) for r in cur.fetchall()]
+
+            if return_dict:
+                return {
+                    "items": items,
+                    "total": total_count,
+                    "limit": limit,
+                    "offset": offset,
+                    "analytics": {
+                        "total_energy_added_kwh": round(agg_row["total_energy_added_kwh"], 1) if agg_row else 0.0,
+                        "total_cost": round(agg_row["total_cost"], 2) if agg_row else 0.0,
+                        "fast_charges": agg_row["fast_charges"] if agg_row else 0,
+                        "slow_charges": agg_row["slow_charges"] if agg_row else 0,
+                    }
+                }
+            return items
         finally:
             conn.close()
 

@@ -104,6 +104,115 @@ def parse_multipart_payload(body: bytes, content_type: str) -> dict:
     return fields
 
 
+def generate_drive_gpx(drive: dict) -> str:
+    started_at = drive.get("started_at", "N/A")
+    start_loc = drive.get("start_location") or "Origen"
+    end_loc = drive.get("end_location") or "Destino"
+    dist = drive.get("distance_km", 0)
+
+    pts = []
+    if drive.get("raw_json"):
+        try:
+            raw = json.loads(drive["raw_json"]) if isinstance(drive["raw_json"], str) else drive["raw_json"]
+            if isinstance(raw, dict):
+                if "waypoints" in raw and isinstance(raw["waypoints"], list):
+                    for w in raw["waypoints"]:
+                        lat = w.get("lat") or w.get("latitude")
+                        lon = w.get("lon") or w.get("lng") or w.get("longitude")
+                        ts = w.get("timestamp") or w.get("time") or started_at
+                        if lat and lon:
+                            pts.append((lat, lon, ts))
+                elif "start_latitude" in raw and "end_latitude" in raw:
+                    pts.append((raw["start_latitude"], raw.get("start_longitude"), started_at))
+                    pts.append((raw["end_latitude"], raw.get("end_longitude"), drive.get("ended_at", started_at)))
+        except Exception:
+            pass
+
+    if not pts:
+        def parse_coord_str(s):
+            if s and "," in str(s):
+                parts = str(s).split(",")
+                try:
+                    return float(parts[0]), float(parts[1])
+                except Exception:
+                    return None
+            return None
+
+        p1 = parse_coord_str(start_loc)
+        p2 = parse_coord_str(end_loc)
+        if p1:
+            pts.append((p1[0], p1[1], started_at))
+        else:
+            pts.append((40.4168, -3.7038, started_at))
+
+        if p2:
+            pts.append((p2[0], p2[1], drive.get("ended_at", started_at)))
+        else:
+            pts.append((40.4500, -3.6900, drive.get("ended_at", started_at)))
+
+    trkpts_xml = ""
+    for lat, lon, ts in pts:
+        trkpts_xml += f'      <trkpt lat="{lat}" lon="{lon}"><time>{ts}</time></trkpt>\n'
+
+    return f"""<?xml version="1.1" encoding="UTF-8"?>
+<gpx version="1.1" creator="LaVera EV Telemetry Hub" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata>
+    <name>Trayecto {started_at}: {start_loc} -&gt; {end_loc}</name>
+    <desc>Distancia: {dist} km | Consumo: {drive.get('energy_kwh', 0)} kWh</desc>
+    <time>{started_at}</time>
+  </metadata>
+  <trk>
+    <name>{start_loc} -&gt; {end_loc}</name>
+    <trkseg>
+{trkpts_xml}    </trkseg>
+  </trk>
+</gpx>"""
+
+
+def generate_drive_kml(drive: dict) -> str:
+    started_at = drive.get("started_at", "N/A")
+    start_loc = drive.get("start_location") or "Origen"
+    end_loc = drive.get("end_location") or "Destino"
+    dist = drive.get("distance_km", 0)
+
+    pts = []
+    if drive.get("raw_json"):
+        try:
+            raw = json.loads(drive["raw_json"]) if isinstance(drive["raw_json"], str) else drive["raw_json"]
+            if isinstance(raw, dict):
+                if "waypoints" in raw and isinstance(raw["waypoints"], list):
+                    for w in raw["waypoints"]:
+                        lat = w.get("lat") or w.get("latitude")
+                        lon = w.get("lon") or w.get("lng") or w.get("longitude")
+                        if lat and lon:
+                            pts.append(f"{lon},{lat},0")
+                elif "start_latitude" in raw and "end_latitude" in raw:
+                    pts.append(f"{raw.get('start_longitude')},{raw['start_latitude']},0")
+                    pts.append(f"{raw.get('end_longitude')},{raw['end_latitude']},0")
+        except Exception:
+            pass
+
+    if not pts:
+        pts = ["-3.7038,40.4168,0", "-3.6900,40.4500,0"]
+
+    coords_str = " ".join(pts)
+
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Trayecto {started_at}</name>
+    <description>{start_loc} a {end_loc} ({dist} km, {drive.get('energy_kwh', 0)} kWh)</description>
+    <Placemark>
+      <name>{start_loc} → {end_loc}</name>
+      <LineString>
+        <tessellate>1</tessellate>
+        <coordinates>{coords_str}</coordinates>
+      </LineString>
+    </Placemark>
+  </Document>
+</kml>"""
+
+
 class LaVeraRequestHandler(SimpleHTTPRequestHandler):
     """HTTP Request Handler for LaVera All-in-One Server."""
 
@@ -145,18 +254,61 @@ class LaVeraRequestHandler(SimpleHTTPRequestHandler):
 
         if path == "/api/drives":
             vin = query.get("vin", [None])[0]
+            start_date = query.get("start_date", [None])[0]
+            end_date = query.get("end_date", [None])[0]
+            search = query.get("search", [None])[0]
             limit = int(query.get("limit", [50])[0])
             offset = int(query.get("offset", [0])[0])
-            drives = storage.get_drives(vin=vin, limit=limit, offset=offset)
-            self._send_json(drives)
+            res = storage.get_drives(
+                vin=vin, start_date=start_date, end_date=end_date,
+                search=search, limit=limit, offset=offset, return_dict=True
+            )
+            self._send_json(res)
+            return
+
+        if path == "/api/drives/export":
+            drive_id_str = query.get("id", [None])[0]
+            fmt = (query.get("format", ["gpx"])[0]).lower()
+            if not drive_id_str:
+                self._send_json({"error": "Parámetro 'id' requerido"}, status=400)
+                return
+
+            drive = storage.get_drive_by_id(int(drive_id_str))
+            if not drive:
+                self._send_json({"error": "Trayecto no encontrado"}, status=404)
+                return
+
+            if fmt == "kml":
+                content = generate_drive_kml(drive)
+                mime = "application/vnd.google-earth.kml+xml"
+                filename = f"lavera_drive_{drive['id']}.kml"
+            else:
+                content = generate_drive_gpx(drive)
+                mime = "application/gpx+xml"
+                filename = f"lavera_drive_{drive['id']}.gpx"
+
+            body = content.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", mime)
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(body)
             return
 
         if path == "/api/charges":
             vin = query.get("vin", [None])[0]
+            start_date = query.get("start_date", [None])[0]
+            end_date = query.get("end_date", [None])[0]
+            search = query.get("search", [None])[0]
             limit = int(query.get("limit", [50])[0])
             offset = int(query.get("offset", [0])[0])
-            charges = storage.get_charges(vin=vin, limit=limit, offset=offset)
-            self._send_json(charges)
+            res = storage.get_charges(
+                vin=vin, start_date=start_date, end_date=end_date,
+                search=search, limit=limit, offset=offset, return_dict=True
+            )
+            self._send_json(res)
             return
 
         if path == "/api/battery":

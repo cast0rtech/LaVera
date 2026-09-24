@@ -312,11 +312,26 @@ body {
   height: 280px;
 }
 
+.canvas-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
 .gauge-box {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  height: 280px;
+}
+
+.gauge-details {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 .gauge-details {

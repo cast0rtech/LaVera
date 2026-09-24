@@ -1,5 +1,6 @@
 /**
  * LaVera ChartMini - Zero-dependency offline Canvas charting library
+ * Ultra-robust DPI scaling and auto-resizing.
  */
 
 const ChartMini = {
@@ -7,16 +8,17 @@ const ChartMini = {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
-    
-    // High-DPI scaling
-    const dpr = window.devicePixelRatio || 1;
+
+    const parent = canvas.parentElement;
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
+    const width = Math.max(rect.width || (parent ? parent.clientWidth : 0) || 500, 200);
+    const height = Math.max(rect.height || (parent ? parent.clientHeight : 0) || 240, 150);
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
     ctx.scale(dpr, dpr);
 
-    const width = rect.width;
-    const height = rect.height;
     ctx.clearRect(0, 0, width, height);
 
     if (!data || data.length === 0) {
@@ -36,7 +38,7 @@ const ChartMini = {
     const valRange = (maxVal - minVal) || 1;
 
     // Gridlines
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
     ctx.lineWidth = 1;
     const gridRows = 4;
     for (let i = 0; i <= gridRows; i++) {
@@ -48,7 +50,7 @@ const ChartMini = {
 
       // Y-axis label
       const val = maxVal - (valRange / gridRows) * i;
-      ctx.fillStyle = "#5c677d";
+      ctx.fillStyle = "#8e9bb2";
       ctx.font = "10px sans-serif";
       ctx.textAlign = "right";
       ctx.fillText(val.toFixed(1) + (options.unit ? " " + options.unit : ""), padding.left - 8, y + 3);
@@ -87,11 +89,11 @@ const ChartMini = {
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
-    // Draw Circles for points if count is low
+    // Draw Circles for points
     if (points.length <= 40) {
       points.forEach(p => {
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
         ctx.fillStyle = "#fff";
         ctx.fill();
         ctx.strokeStyle = options.lineColor || "#00d2ff";
@@ -102,7 +104,7 @@ const ChartMini = {
 
     // X-axis label samples
     if (labels && labels.length > 0) {
-      ctx.fillStyle = "#5c677d";
+      ctx.fillStyle = "#8e9bb2";
       ctx.font = "10px sans-serif";
       ctx.textAlign = "center";
       const step = Math.ceil(labels.length / 5);
@@ -118,19 +120,21 @@ const ChartMini = {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
 
-    const dpr = window.devicePixelRatio || 1;
+    const parent = canvas.parentElement;
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
+    const width = Math.max(rect.width || (parent ? parent.clientWidth : 0) || 280, 180);
+    const height = Math.max(rect.height || (parent ? parent.clientHeight : 0) || 200, 140);
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
     ctx.scale(dpr, dpr);
 
-    const width = rect.width;
-    const height = rect.height;
     ctx.clearRect(0, 0, width, height);
 
     const centerX = width / 2;
-    const centerY = height * 0.7;
-    const radius = Math.min(centerX, centerY) * 0.85;
+    const centerY = height * 0.68;
+    const radius = Math.min(centerX, centerY) * 0.82;
 
     const startAngle = Math.PI * 0.8;
     const endAngle = Math.PI * 2.2;
@@ -162,14 +166,14 @@ const ChartMini = {
 
     // Central Value Text
     ctx.fillStyle = "#f0f4fc";
-    ctx.font = "bold 28px sans-serif";
+    ctx.font = "bold 26px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(`${Math.round(value)}${options.unit || "%"}`, centerX, centerY - 10);
+    ctx.fillText(`${Math.round(value)}${options.unit || "%"}`, centerX, centerY - 8);
 
     // Label Text
     ctx.fillStyle = "#8e9bb2";
-    ctx.font = "12px sans-serif";
+    ctx.font = "11px sans-serif";
     ctx.fillText(options.label || "State of Charge", centerX, centerY + 18);
   }
 };

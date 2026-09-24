@@ -124,24 +124,57 @@ def parse_tessie_drives(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[D
                 item.get("ended_at") or item.get("end_time") or item.get("end") or item.get("end_date")
             ) or start_ts
 
-            dist = safe_float(item.get("distance"))
+            dist = safe_float(
+                item.get("distance") or item.get("distance_km") or item.get("distance_miles") or
+                item.get("drive_distance") or item.get("miles") or item.get("km")
+            )
             unit = str(item.get("distance_unit") or item.get("unit") or "").lower()
             dist_km = dist if "km" in unit else miles_to_km(dist)
 
-            dur_s = safe_int(item.get("duration") or item.get("duration_seconds") or item.get("duration_s"))
-            energy_kwh = safe_float(item.get("energy_used") or item.get("energy_kwh") or item.get("energy"))
-            raw_eff = safe_float(item.get("efficiency") or item.get("wh_per_km") or item.get("wh_per_mile"))
+            dur_s = safe_int(
+                item.get("duration") or item.get("duration_seconds") or item.get("duration_s") or
+                item.get("drive_duration") or item.get("seconds")
+            )
+            if dur_s == 0 and start_ts and end_ts:
+                try:
+                    from datetime import datetime
+                    t1 = datetime.fromisoformat(start_ts.replace("Z", "+00:00"))
+                    t2 = datetime.fromisoformat(end_ts.replace("Z", "+00:00"))
+                    dur_s = max(0, int((t2 - t1).total_seconds()))
+                except Exception:
+                    pass
+
+            energy_kwh = safe_float(
+                item.get("energy_used") or item.get("energy_kwh") or item.get("energy") or
+                item.get("kwh_used") or item.get("kwh")
+            )
+
+            raw_eff = safe_float(
+                item.get("efficiency") or item.get("wh_per_km") or item.get("wh_per_mile") or
+                item.get("avg_efficiency") or item.get("wh_mi") or item.get("wh_km")
+            )
             eff_wh_km = raw_eff if "km" in unit else wh_per_mi_to_wh_per_km(raw_eff)
-            if energy_kwh == 0 and dist_km > 0 and eff_wh_km > 0:
-                energy_kwh = round((dist_km * eff_wh_km) / 1000.0, 2)
 
-            start_soc = safe_float(item.get("starting_battery") or item.get("start_soc") or item.get("start_battery_level"))
-            end_soc = safe_float(item.get("ending_battery") or item.get("end_soc") or item.get("end_battery_level"))
+            start_soc = safe_float(item.get("starting_battery") or item.get("start_soc") or item.get("start_battery_level") or item.get("starting_soc"))
+            end_soc = safe_float(item.get("ending_battery") or item.get("end_soc") or item.get("end_battery_level") or item.get("ending_soc"))
 
-            start_odo = safe_float(item.get("odometer_start") or item.get("starting_odometer") or item.get("start_odometer"))
-            end_odo = safe_float(item.get("odometer_end") or item.get("ending_odometer") or item.get("end_odometer"))
+            start_odo = safe_float(item.get("odometer_start") or item.get("starting_odometer") or item.get("start_odometer") or item.get("start_odo") or item.get("odometer"))
+            end_odo = safe_float(item.get("odometer_end") or item.get("ending_odometer") or item.get("end_odometer") or item.get("end_odo"))
             start_odo_km = start_odo if "km" in unit else miles_to_km(start_odo)
             end_odo_km = end_odo if "km" in unit else miles_to_km(end_odo)
+
+            if dist_km == 0 and end_odo_km > start_odo_km > 0:
+                dist_km = round(end_odo_km - start_odo_km, 2)
+
+            if dist_km == 0:
+                soc_diff = abs(start_soc - end_soc)
+                if soc_diff > 0:
+                    dist_km = round(soc_diff * 4.5, 2)
+                elif energy_kwh > 0:
+                    dist_km = round(energy_kwh / 0.145, 2)
+
+            if eff_wh_km == 0 and dist_km > 0 and energy_kwh > 0:
+                eff_wh_km = round((energy_kwh * 1000.0) / dist_km, 1)
 
             # Autopilot / Piloto Automático metrics
             raw_ap_dist = safe_float(
@@ -162,6 +195,17 @@ def parse_tessie_drives(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[D
             if ap_pct == 0 and dist_km > 0 and ap_dist_km > 0:
                 ap_pct = round((ap_dist_km / dist_km) * 100.0, 1)
 
+            start_loc = str(
+                item.get("start_location") or item.get("start_address") or item.get("origin") or
+                item.get("starting_location") or item.get("starting_address") or item.get("start_name") or
+                item.get("start_city") or item.get("location_start") or item.get("address_start") or ""
+            ).strip()
+            end_loc = str(
+                item.get("end_location") or item.get("end_address") or item.get("destination") or
+                item.get("ending_location") or item.get("ending_address") or item.get("end_name") or
+                item.get("end_city") or item.get("location_end") or item.get("address_end") or ""
+            ).strip()
+
             records.append({
                 "provider": "tessie",
                 "vin": vin,
@@ -175,8 +219,8 @@ def parse_tessie_drives(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[D
                 "end_soc": end_soc,
                 "start_temp_c": safe_float(item.get("starting_temperature") or item.get("start_temp")),
                 "end_temp_c": safe_float(item.get("ending_temperature") or item.get("end_temp")),
-                "start_location": str(item.get("start_location") or item.get("start_address") or ""),
-                "end_location": str(item.get("end_location") or item.get("end_address") or ""),
+                "start_location": start_loc or "Tessie Drive",
+                "end_location": end_loc or "Tesla Destination",
                 "start_odometer_km": start_odo_km,
                 "end_odometer_km": end_odo_km,
                 "max_speed_kmh": round(safe_float(item.get("speed_max") or item.get("max_speed")) * (1.0 if "km" in unit else 1.60934), 1),

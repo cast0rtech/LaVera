@@ -191,6 +191,11 @@ class LaVeraRequestHandler(SimpleHTTPRequestHandler):
             })
             return
 
+        if path == "/api/settings/vehicle":
+            orig_cap = float(storage.get_setting("original_capacity_kwh", "75.0"))
+            self._send_json({"original_capacity_kwh": orig_cap})
+            return
+
         if path == "/api/db/info":
             summary = storage.get_summary()
             self._send_json({
@@ -369,6 +374,20 @@ class LaVeraRequestHandler(SimpleHTTPRequestHandler):
                 if "tessie_auto_sync" in payload:
                     storage.set_setting("tessie_auto_sync", "1" if payload["tessie_auto_sync"] else "0")
                 self._send_json({"status": "success"})
+            except Exception as e:
+                self._send_json({"error": str(e)}, status=400)
+            return
+
+        if path == "/api/settings/vehicle":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                payload = json.loads(post_data.decode("utf-8"))
+                val = float(payload.get("original_capacity_kwh", 75.0))
+                if val <= 0 or val > 300:
+                    raise ValueError("Capacidad no válida (10 - 300 kWh).")
+                storage.set_setting("original_capacity_kwh", str(val))
+                self._send_json({"status": "success", "original_capacity_kwh": val})
             except Exception as e:
                 self._send_json({"error": str(e)}, status=400)
             return

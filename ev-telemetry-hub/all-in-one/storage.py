@@ -81,14 +81,19 @@ class OfflineStorage:
             """, params)
             charge_row = cur.fetchone()
 
-            # Battery Health (latest)
+            # Idle Logs / Vampire Drain aggregate
             cur.execute(f"""
                 SELECT
-                    capacity_kwh,
-                    original_capacity_kwh,
-                    degradation_pct,
-                    max_range_km,
-                    timestamp
+                    COUNT(*) as total_idles,
+                    COALESCE(SUM(soc_loss_pct), 0) as total_vampire_soc_loss,
+                    COALESCE(SUM(range_loss_km), 0) as total_vampire_range_loss_km
+                FROM idle_logs {vin_clause}
+            """, params)
+            idle_row = cur.fetchone()
+
+            # Latest Battery Health record
+            cur.execute(f"""
+                SELECT capacity_kwh, degradation_pct, max_range_km, timestamp
                 FROM battery_health {vin_clause}
                 ORDER BY timestamp DESC LIMIT 1
             """, params)
@@ -102,25 +107,71 @@ class OfflineStorage:
             """, params)
             live_row = cur.fetchone()
 
+            # User-configured original battery capacity when new (default: 75.0 kWh)
+            user_orig_cap = float(self.get_setting("original_capacity_kwh", "75.0"))
+
+            # Drives metrics
+            tot_count = drive_row["total_drives"]
+            tot_dist = drive_row["total_distance_km"]
+            tot_drive_energy = drive_row["total_energy_kwh"]
+            latest_odo = drive_row["latest_odometer_km"]
+            
+            if tot_dist == 0 and latest_odo > 0:
+                tot_dist = latest_odo
+
+            net_eff = drive_row["avg_efficiency_wh_km"]
+            if net_eff == 0 and tot_dist > 0 and tot_drive_energy > 0:
+                net_eff = round((tot_drive_energy * 1000.0) / tot_dist, 1)
+
+            # Charges metrics
+            tot_charged_kwh = charge_row["total_charged_kwh"]
+            tot_charge_cost = charge_row["total_charging_cost"]
+
+            # Vampire Drain / Inactividad calculations
+            vampire_soc_loss = idle_row["total_vampire_soc_loss"] if idle_row else 0.0
+            if vampire_soc_loss > 0:
+                vampire_kwh = (vampire_soc_loss / 100.0) * user_orig_cap
+            else:
+                # Estimate vampire drain from charging vs driving gap (minus 12% AC/DC charging loss)
+                vampire_kwh = max(0.0, (tot_charged_kwh * 0.88) - tot_drive_energy) if tot_charged_kwh > 0 else 0.0
+
+            gross_energy_kwh = tot_drive_energy + vampire_kwh
+            gross_eff = (gross_energy_kwh * 1000.0) / tot_dist if tot_dist > 0 else net_eff
+            vampire_impact_wh_km = max(0.0, gross_eff - net_eff)
+
+            # Battery Health (latest) against user's original capacity
+            curr_cap = battery_row["capacity_kwh"] if battery_row and battery_row["capacity_kwh"] else (user_orig_cap * 0.90)
+            if curr_cap > user_orig_cap:
+                curr_cap = user_orig_cap
+            deg_pct = round(max(0.0, ((user_orig_cap - curr_cap) / user_orig_cap) * 100.0), 1)
+            max_range = round((user_orig_cap * (1 - deg_pct / 100.0)) * 6.0, 1)
+
             return {
                 "drives": {
-                    "total_count": drive_row["total_drives"],
-                    "total_distance_km": round(drive_row["total_distance_km"], 1),
-                    "total_energy_kwh": round(drive_row["total_energy_kwh"], 1),
-                    "avg_efficiency_wh_km": round(drive_row["avg_efficiency_wh_km"], 1),
-                    "latest_odometer_km": round(drive_row["latest_odometer_km"], 1),
+                    "total_count": tot_count,
+                    "total_distance_km": round(tot_dist, 1),
+                    "total_energy_kwh": round(tot_drive_energy, 1),
+                    "avg_efficiency_wh_km": round(net_eff, 1),
+                    "latest_odometer_km": round(latest_odo, 1),
                 },
                 "charges": {
                     "total_count": charge_row["total_charges"],
-                    "total_charged_kwh": round(charge_row["total_charged_kwh"], 1),
-                    "total_cost": round(charge_row["total_charging_cost"], 2),
+                    "total_charged_kwh": round(tot_charged_kwh, 1),
+                    "total_cost": round(tot_charge_cost, 2),
                     "max_charge_kw": round(charge_row["max_charge_kw"], 1),
                 },
+                "vampire_drain": {
+                    "vampire_kwh": round(vampire_kwh, 1),
+                    "vampire_soc_loss_pct": round(vampire_soc_loss, 1),
+                    "gross_total_energy_kwh": round(gross_energy_kwh, 1),
+                    "gross_efficiency_wh_km": round(gross_eff, 1),
+                    "vampire_impact_wh_km": round(vampire_impact_wh_km, 1),
+                },
                 "battery": {
-                    "capacity_kwh": round(battery_row["capacity_kwh"], 1) if battery_row else 0.0,
-                    "original_capacity_kwh": round(battery_row["original_capacity_kwh"], 1) if battery_row else 0.0,
-                    "degradation_pct": round(battery_row["degradation_pct"], 1) if battery_row else 0.0,
-                    "max_range_km": round(battery_row["max_range_km"], 1) if battery_row else 0.0,
+                    "capacity_kwh": round(curr_cap, 1),
+                    "original_capacity_kwh": round(user_orig_cap, 1),
+                    "degradation_pct": round(deg_pct, 1),
+                    "max_range_km": round(max_range, 1),
                     "last_checked": battery_row["timestamp"] if battery_row else None,
                 },
                 "live": {

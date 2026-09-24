@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initImporter();
   initOnlineSync();
   initQuickActions();
+  initVehicleConfig();
   loadAllData();
 
   // Auto-refresh stats every 30 seconds
@@ -75,6 +76,47 @@ function initQuickActions() {
   if (quickSync) quickSync.addEventListener("click", () => switchTab("online"));
 }
 
+// Vehicle Battery Capacity Configuration Toolbar
+function initVehicleConfig() {
+  const inputCap = document.getElementById("input-orig-cap");
+  const btnSave = document.getElementById("btn-save-orig-cap");
+  const presetBtns = document.querySelectorAll(".preset-btn");
+
+  presetBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const capVal = btn.getAttribute("data-cap");
+      if (inputCap) inputCap.value = capVal;
+      presetBtns.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      saveVehicleConfig(parseFloat(capVal));
+    });
+  });
+
+  if (btnSave) {
+    btnSave.addEventListener("click", () => {
+      const val = parseFloat(inputCap?.value || 75.0);
+      saveVehicleConfig(val);
+    });
+  }
+}
+
+async function saveVehicleConfig(val) {
+  try {
+    const res = await fetch("/api/settings/vehicle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ original_capacity_kwh: val })
+    });
+    if (res.ok) {
+      await loadStats();
+      const activeTab = document.querySelector(".tab-btn.active")?.getAttribute("data-tab");
+      if (activeTab === "battery") loadBattery();
+    }
+  } catch (err) {
+    console.error("Error saving original battery capacity:", err);
+  }
+}
+
 // Data Loaders
 async function loadAllData() {
   await loadStats();
@@ -89,6 +131,21 @@ async function loadStats() {
 
     const t = window.i18n ? window.i18n.t : (k => k);
 
+    // Populate Vehicle Original Capacity toolbar input & active preset button
+    if (data.battery && data.battery.original_capacity_kwh) {
+      const inputCap = document.getElementById("input-orig-cap");
+      if (inputCap && document.activeElement !== inputCap) {
+        inputCap.value = data.battery.original_capacity_kwh;
+      }
+      document.querySelectorAll(".preset-btn").forEach(b => {
+        if (parseFloat(b.getAttribute("data-cap")) === parseFloat(data.battery.original_capacity_kwh)) {
+          b.classList.add("active");
+        } else {
+          b.classList.remove("active");
+        }
+      });
+    }
+
     // Check empty state
     const drivesCount = (data.drives && data.drives.total_count) || 0;
     const chargesCount = (data.charges && data.charges.total_count) || 0;
@@ -97,23 +154,37 @@ async function loadStats() {
       emptyBanner.style.display = (drivesCount === 0 && chargesCount === 0) ? "flex" : "none";
     }
 
-    // KPI Cards
+    // KPI Card 1: Distance & Odometer
     if (data.drives) {
       document.getElementById("kpi-distance").innerHTML = `${data.drives.total_distance_km.toLocaleString()} <span class="unit">km</span>`;
       document.getElementById("kpi-odometer").innerText = `${t("kpi_odometer")} ${data.drives.latest_odometer_km.toLocaleString()} km (${data.drives.total_count} ${t("drives_shown")})`;
+    }
+
+    // KPI Card 2: Net Driving Efficiency & Consumption (excluding vampire drain)
+    if (data.drives) {
       document.getElementById("kpi-efficiency").innerHTML = `${Math.round(data.drives.avg_efficiency_wh_km)} <span class="unit">Wh/km</span>`;
       document.getElementById("kpi-energy").innerText = `${t("kpi_consumption")} ${data.drives.total_energy_kwh.toLocaleString()} kWh`;
     }
 
-    if (data.charges) {
-      document.getElementById("kpi-charged").innerHTML = `${data.charges.total_charged_kwh.toLocaleString()} <span class="unit">kWh</span>`;
-      document.getElementById("kpi-charges-count").innerText = `${data.charges.total_count} ${t("kpi_sessions")} ($${data.charges.total_cost})`;
+    // KPI Card 3: Vampire Drain (Consumo Fantasma / Idle Loss) & Gross Consumption
+    if (data.vampire_drain) {
+      const vLoss = document.getElementById("kpi-vampire-loss");
+      const vImpact = document.getElementById("kpi-vampire-impact");
+      if (vLoss) {
+        vLoss.innerHTML = `${data.vampire_drain.vampire_kwh.toLocaleString()} <span class="unit">kWh</span>`;
+      }
+      if (vImpact) {
+        const grossEff = Math.round(data.vampire_drain.gross_efficiency_wh_km || (data.drives ? data.drives.avg_efficiency_wh_km : 0));
+        const impactWh = Math.round(data.vampire_drain.vampire_impact_wh_km || 0);
+        vImpact.innerText = `${t("kpi_gross_eff")} ${grossEff} Wh/km (+${impactWh} Wh/km)`;
+      }
     }
 
+    // KPI Card 4: Battery SOH & Degradation (recalculated against user's original capacity setting)
     if (data.battery) {
       const soh = (100 - (data.battery.degradation_pct || 0)).toFixed(1);
       document.getElementById("kpi-health").innerHTML = `${soh} <span class="unit">%</span>`;
-      document.getElementById("kpi-degradation").innerText = `${t("kpi_degradation")} ${data.battery.degradation_pct}% (${data.battery.capacity_kwh} kWh)`;
+      document.getElementById("kpi-degradation").innerText = `${t("kpi_degradation")} ${data.battery.degradation_pct}% (${data.battery.capacity_kwh} kWh / ${data.battery.original_capacity_kwh} kWh)`;
     }
 
     // Gauge & Live Telemetry

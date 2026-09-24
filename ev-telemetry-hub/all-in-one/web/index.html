@@ -69,6 +69,32 @@
           </div>
         </div>
 
+        <!-- Vehicle Original Capacity Toolbar -->
+        <div class="card config-bar mb-3">
+          <div class="config-bar-content">
+            <div class="config-label">
+              <span class="config-icon">🔋</span>
+              <div>
+                <h4 data-i18n="config_battery_title">Capacidad Batería de Fábrica (Nuevo)</h4>
+                <p class="config-sub" data-i18n="config_battery_sub">Define el SoC 100% útil del coche cuando nuevo para calibrar el SOH y aislar el consumo fantasma.</p>
+              </div>
+            </div>
+            <div class="config-inputs">
+              <div class="preset-buttons">
+                <button class="btn btn-xs btn-outline preset-btn" data-cap="60">60 kWh</button>
+                <button class="btn btn-xs btn-outline preset-btn" data-cap="75">75 kWh</button>
+                <button class="btn btn-xs btn-outline preset-btn" data-cap="82">82 kWh</button>
+                <button class="btn btn-xs btn-outline preset-btn" data-cap="100">100 kWh</button>
+              </div>
+              <div class="input-with-unit">
+                <input type="number" id="input-orig-cap" step="0.1" min="10" max="250" value="75.0" class="input-sm">
+                <span class="unit">kWh</span>
+              </div>
+              <button class="btn btn-sm btn-primary" id="btn-save-orig-cap" data-i18n="btn_save">💾 Guardar</button>
+            </div>
+          </div>
+        </div>
+
         <!-- KPI Cards Grid -->
         <div class="kpi-grid">
           <div class="card kpi-card">
@@ -77,14 +103,14 @@
             <div class="kpi-sub" id="kpi-odometer"><span data-i18n="kpi_odometer">Odómetro:</span> -- km</div>
           </div>
           <div class="card kpi-card">
-            <div class="kpi-title" data-i18n="kpi_efficiency_title">Eficiencia Media</div>
+            <div class="kpi-title" data-i18n="kpi_efficiency_title">Eficiencia Conducción (Neto)</div>
             <div class="kpi-value" id="kpi-efficiency">-- <span class="unit">Wh/km</span></div>
-            <div class="kpi-sub" id="kpi-energy"><span data-i18n="kpi_consumption">Consumo Total:</span> -- kWh</div>
+            <div class="kpi-sub" id="kpi-energy"><span data-i18n="kpi_consumption">Consumo Conducción:</span> -- kWh</div>
           </div>
           <div class="card kpi-card">
-            <div class="kpi-title" data-i18n="kpi_charged_title">Energía Cargada</div>
-            <div class="kpi-value" id="kpi-charged">-- <span class="unit">kWh</span></div>
-            <div class="kpi-sub" id="kpi-charges-count">-- <span data-i18n="kpi_sessions">sesiones de carga</span></div>
+            <div class="kpi-title" data-i18n="kpi_vampire_title">Consumo Fantasma (Inactividad)</div>
+            <div class="kpi-value" id="kpi-vampire-loss">-- <span class="unit">kWh</span></div>
+            <div class="kpi-sub" id="kpi-vampire-impact"><span data-i18n="kpi_gross_eff">Bruto Total:</span> -- Wh/km</div>
           </div>
           <div class="card kpi-card">
             <div class="kpi-title" data-i18n="kpi_health_title">Salud Batería (SOH)</div>

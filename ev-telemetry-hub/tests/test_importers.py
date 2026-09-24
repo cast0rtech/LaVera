@@ -19,6 +19,7 @@ from importer.tessie_parser import (
     parse_tessie_drives,
     parse_tessie_charges,
     parse_tessie_battery_health,
+    detect_tessie_type,
 )
 from importer.writer import TelemetryWriter
 
@@ -155,6 +156,35 @@ class TestTeslaImporters(unittest.TestCase):
             if os.path.exists(tmp_db):
                 os.remove(tmp_db)
 
+
+    def test_tessie_european_semicolon_csv(self):
+        csv_data = """\ufeffHora de inicio;Hora de fin;Distancia;Batería inicial;Batería final;Energía usada;Eficiencia;Ubicación inicial;Ubicación final
+15/06/2026 10:30;15/06/2026 11:15;42,5 km;80 %;68 %;6,8 kWh;160 Wh/km;Madrid Norte;Guadalajara
+16/06/2026 09:00;16/06/2026 09:40;31,2 km;68 %;60 %;4,9 kWh;157 Wh/km;Guadalajara;Alcalá de Henares
+"""
+        self.assertEqual(detect_tessie_type(csv_data), "drives")
+        records = parse_tessie_drives(csv_data, vin="EURO_TESLA")
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0]["distance_km"], 42.5)
+        self.assertEqual(records[0]["start_soc"], 80.0)
+        self.assertEqual(records[0]["end_soc"], 68.0)
+        self.assertEqual(records[0]["energy_kwh"], 6.8)
+        self.assertEqual(records[0]["efficiency_wh_km"], 160.0)
+        self.assertEqual(records[0]["start_location"], "Madrid Norte")
+        self.assertEqual(records[0]["end_location"], "Guadalajara")
+
+    def test_tessie_charges_semicolon_spanish_csv(self):
+        csv_data = """Hora de inicio;Hora de fin;Energía agregada;Autonomía agregada;Potencia máxima;Coste;Ubicación;Cargador rápido
+20/06/2026 18:00;20/06/2026 18:35;35,5 kWh;230 km;150 kW;14,20 €;Tesla Supercharger;Sí
+"""
+        self.assertEqual(detect_tessie_type(csv_data), "charges")
+        records = parse_tessie_charges(csv_data, vin="EURO_CHARGE")
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["energy_added_kwh"], 35.5)
+        self.assertEqual(records[0]["range_added_km"], 230.0)
+        self.assertEqual(records[0]["peak_kw"], 150.0)
+        self.assertEqual(records[0]["cost"], 14.20)
+        self.assertEqual(records[0]["is_fast_charge"], 1)
 
 if __name__ == "__main__":
     unittest.main()

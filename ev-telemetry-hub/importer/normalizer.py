@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import re
+import unicodedata
 from typing import Any, Optional
 
 
@@ -30,21 +31,60 @@ def wh_per_mi_to_wh_per_km(wh_mi: float) -> float:
     return round(float(wh_mi) / 1.609344, 1)
 
 
+def detect_delimiter(text: str) -> str:
+    """Detects delimiter (comma, semicolon, tab) in CSV text."""
+    for line in text.splitlines()[:5]:
+        line = line.strip()
+        if not line:
+            continue
+        semicolons = line.count(";")
+        commas = line.count(",")
+        tabs = line.count("\t")
+        if semicolons > commas and semicolons > 0:
+            return ";"
+        if tabs > commas and tabs > 0:
+            return "\t"
+        if commas > 0:
+            return ","
+    return ","
+
+
+def decode_file_bytes(raw: bytes) -> str:
+    """Robustly decodes raw file bytes supporting UTF-8 (with/without BOM), Windows-1252, and Latin-1."""
+    for enc in ["utf-8-sig", "utf-8", "cp1252", "latin-1", "iso-8859-1"]:
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("utf-8", errors="replace")
+
+
 def safe_float(val: Any, default: float = 0.0) -> float:
-    """Safely converts string/number to float, handling currencies, %, and European comma decimals."""
+    """Safely converts string/number to float, handling units, currencies, %, and European comma decimals."""
     if val is None:
         return default
     if isinstance(val, (int, float)):
         return float(val)
-    s = str(val).strip().replace("$", "").replace("€", "").replace("%", "")
-    if not s or s.lower() in ("null", "none", "nan", "-"):
+    s = str(val).strip()
+    if not s or s.lower() in ("null", "none", "nan", "-", "--", "n/a"):
         return default
+
+    # Strip currency, units and unwanted characters, keeping digits, separators, and sign
+    s = re.sub(r"[^\d.,\-+]", "", s)
+    if not s:
+        return default
+
     # Handle European decimal separator vs thousands separator
     if "," in s and "." not in s:
         s = s.replace(",", ".")
     elif "," in s and "." in s:
-        # e.g. "1,234.56"
-        s = s.replace(",", "")
+        if s.rfind(",") > s.rfind("."):
+            # European format with dot thousand: "1.234,56"
+            s = s.replace(".", "").replace(",", ".")
+        else:
+            # US format: "1,234.56"
+            s = s.replace(",", "")
+
     try:
         return float(s)
     except (ValueError, TypeError):
@@ -65,18 +105,17 @@ def safe_int(val: Any, default: int = 0) -> int:
 
 def parse_timestamp(val: Any) -> Optional[str]:
     """
-    Parses various timestamp formats (ISO8601 with/without offset & ms, TeslaFi, Tessie, Epoch in sec/ms)
+    Parses various timestamp formats (ISO8601 with/without offset & ms, Spanish, TeslaFi, Tessie, Epoch in sec/ms)
     into standard ISO 8601 UTC string (YYYY-MM-DDTHH:MM:SSZ).
     """
     if val is None:
         return None
     s = str(val).strip()
-    if not s or s.lower() in ("null", "none", ""):
+    if not s or s.lower() in ("null", "none", "", "-"):
         return None
 
     # Check Unix epoch (seconds, milliseconds, or floats)
     try:
-        # Check if purely numeric
         num = float(s)
         if num > 100000000:
             if num > 10000000000:
@@ -86,9 +125,12 @@ def parse_timestamp(val: Any) -> Optional[str]:
     except (ValueError, TypeError, OverflowError):
         pass
 
+    # Normalize Spanish a. m. / p. m.
+    clean_s = s.replace("a. m.", "AM").replace("p. m.", "PM").replace("a.m.", "AM").replace("p.m.", "PM")
+
     # Try ISO fromisoformat (handles ISO 8601 with microseconds and offsets)
     try:
-        clean_iso = s.replace("Z", "+00:00")
+        clean_iso = clean_s.replace("Z", "+00:00")
         dt = datetime.fromisoformat(clean_iso)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
@@ -104,20 +146,29 @@ def parse_timestamp(val: Any) -> Optional[str]:
         "%Y-%m-%dT%H:%M:%S%z",
         "%Y-%m-%d %H:%M:%S",
         "%Y-%m-%d %H:%M",
-        "%m/%d/%Y %H:%M:%S",
-        "%m/%d/%Y %H:%M",
+        "%Y/%m/%d %H:%M:%S",
+        "%Y/%m/%d %H:%M",
+        "%Y/%m/%d %I:%M:%S %p",
+        "%Y/%m/%d %I:%M %p",
         "%d/%m/%Y %H:%M:%S",
         "%d/%m/%Y %H:%M",
+        "%d/%m/%Y %I:%M:%S %p",
+        "%d/%m/%Y %I:%M %p",
+        "%m/%d/%Y %H:%M:%S",
+        "%m/%d/%Y %H:%M",
+        "%m/%d/%Y %I:%M:%S %p",
+        "%m/%d/%Y %I:%M %p",
         "%d-%m-%Y %H:%M:%S",
         "%d-%m-%Y %H:%M",
         "%Y-%m-%d",
         "%d/%m/%Y",
         "%m/%d/%Y",
+        "%Y/%m/%d",
     ]
 
     for fmt in formats:
         try:
-            dt = datetime.strptime(s, fmt)
+            dt = datetime.strptime(clean_s, fmt)
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
             else:
@@ -130,5 +181,6 @@ def parse_timestamp(val: Any) -> Optional[str]:
 
 
 def clean_header_key(key: str) -> str:
-    """Normalizes CSV header key for flexible matching (lowercase, alphanumeric only)."""
-    return re.sub(r"[^a-z0-9]", "", str(key).lower())
+    """Normalizes CSV header key for flexible matching (unaccented, lowercase, alphanumeric only)."""
+    s = unicodedata.normalize("NFKD", str(key)).encode("ASCII", "ignore").decode("ASCII")
+    return re.sub(r"[^a-z0-9]", "", s.lower())

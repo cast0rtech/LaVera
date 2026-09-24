@@ -248,5 +248,37 @@ class TestAllInOneAPI(unittest.TestCase):
             self.assertIn("db_path", data)
             self.assertIn("drives_count", data)
 
+    def test_10_import_spanish_semicolon_csv(self):
+        csv_content = "\ufeffHora de inicio;Hora de fin;Distancia;Batería inicial;Batería final;Energía usada;Eficiencia;Ubicación inicial;Ubicación final\r\n15/06/2026 10:30;15/06/2026 11:15;42,5 km;80 %;68 %;6,8 kWh;160 Wh/km;Madrid Norte;Guadalajara\r\n"
+        boundary = "----WebKitFormBoundarySpanishCSVTest"
+        body = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file"; filename="viajes_tessie.csv"\r\n'
+            f"Content-Type: text/csv; charset=utf-8\r\n\r\n"
+            f"{csv_content}\r\n"
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="vin"\r\n\r\n'
+            f"TESLA_SPAIN_TEST\r\n"
+            f"--{boundary}--\r\n"
+        ).encode("utf-8")
+
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/api/import",
+            data=body,
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Content-Length": str(len(body))
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode())
+            self.assertEqual(data["status"], "success")
+            self.assertEqual(data["source"], "tessie")
+            self.assertEqual(data["type"], "drives")
+            self.assertEqual(data["records_imported"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

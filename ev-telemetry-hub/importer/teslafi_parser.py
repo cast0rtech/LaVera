@@ -8,6 +8,7 @@ import io
 from typing import Any, Dict, List, Optional, Tuple
 from .normalizer import (
     clean_header_key,
+    detect_delimiter,
     miles_to_km,
     f_to_c,
     wh_per_mi_to_wh_per_km,
@@ -37,10 +38,10 @@ def parse_teslafi_drives(csv_text_or_io: Any, vin: str = "TESLA_DEFAULT") -> Lis
     """
     Parses TeslaFi drives CSV export into normalized records.
     """
-    if isinstance(csv_text_or_io, str):
-        reader = csv.DictReader(io.StringIO(csv_text_or_io))
-    else:
-        reader = csv.DictReader(csv_text_or_io)
+    text = csv_text_or_io if isinstance(csv_text_or_io, str) else str(csv_text_or_io)
+    text = text.lstrip("\ufeff")
+    delim = detect_delimiter(text)
+    reader = csv.DictReader(io.StringIO(text), delimiter=delim)
 
     records = []
     headers = reader.fieldnames or []
@@ -122,10 +123,10 @@ def parse_teslafi_charges(csv_text_or_io: Any, vin: str = "TESLA_DEFAULT") -> Li
     """
     Parses TeslaFi charging sessions CSV export.
     """
-    if isinstance(csv_text_or_io, str):
-        reader = csv.DictReader(io.StringIO(csv_text_or_io))
-    else:
-        reader = csv.DictReader(csv_text_or_io)
+    text = csv_text_or_io if isinstance(csv_text_or_io, str) else str(csv_text_or_io)
+    text = text.lstrip("\ufeff")
+    delim = detect_delimiter(text)
+    reader = csv.DictReader(io.StringIO(text), delimiter=delim)
 
     records = []
     headers = reader.fieldnames or []
@@ -181,10 +182,10 @@ def parse_teslafi_battery_report(csv_text_or_io: Any, vin: str = "TESLA_DEFAULT"
     """
     Parses TeslaFi battery degradation / calendar report CSV.
     """
-    if isinstance(csv_text_or_io, str):
-        reader = csv.DictReader(io.StringIO(csv_text_or_io))
-    else:
-        reader = csv.DictReader(csv_text_or_io)
+    text = csv_text_or_io if isinstance(csv_text_or_io, str) else str(csv_text_or_io)
+    text = text.lstrip("\ufeff")
+    delim = detect_delimiter(text)
+    reader = csv.DictReader(io.StringIO(text), delimiter=delim)
 
     records = []
     headers = reader.fieldnames or []
@@ -222,10 +223,10 @@ def parse_teslafi_idles(csv_text_or_io: Any, vin: str = "TESLA_DEFAULT") -> List
     """
     Parses TeslaFi idle/sleep CSV export for vampire drain analysis.
     """
-    if isinstance(csv_text_or_io, str):
-        reader = csv.DictReader(io.StringIO(csv_text_or_io))
-    else:
-        reader = csv.DictReader(csv_text_or_io)
+    text = csv_text_or_io if isinstance(csv_text_or_io, str) else str(csv_text_or_io)
+    text = text.lstrip("\ufeff")
+    delim = detect_delimiter(text)
+    reader = csv.DictReader(io.StringIO(text), delimiter=delim)
 
     records = []
     headers = reader.fieldnames or []

@@ -1,7 +1,7 @@
 """
 Tessie Data Parser for LaVera EV Telemetry Hub.
 Parses Tessie CSV and JSON exports (drives, charges, battery health analytics, idles).
-Supports all Tessie export variations, API responses, and multi-lingual formats.
+Supports all Tessie export variations, API responses, multi-lingual formats, and European delimiters.
 """
 
 import csv
@@ -10,6 +10,7 @@ import json
 from typing import Any, Dict, List, Optional, Tuple, Union
 from .normalizer import (
     clean_header_key,
+    detect_delimiter,
     miles_to_km,
     f_to_c,
     wh_per_mi_to_wh_per_km,
@@ -22,7 +23,7 @@ from .normalizer import (
 def detect_tessie_type(data: Union[str, Dict, List]) -> str:
     """Detects whether Tessie export is drives, charges, battery, or idle data."""
     if isinstance(data, str):
-        s = data.strip()
+        s = data.strip().lstrip("\ufeff")
         # If it's a JSON string, parse it to examine structured content
         if s.startswith("{") or s.startswith("["):
             try:
@@ -34,13 +35,13 @@ def detect_tessie_type(data: Union[str, Dict, List]) -> str:
         # Inspect first 10 lines of CSV
         first_lines = "\n".join(s.splitlines()[:10])
         cleaned = clean_header_key(first_lines)
-        if any(k in cleaned for k in ["energyadded", "chargeenergy", "fastcharger", "supercharger", "peakpower", "charges"]):
+        if any(k in cleaned for k in ["energyadded", "chargeenergy", "fastcharger", "supercharger", "peakpower", "charges", "cargador", "energiaagregada", "cargas"]):
             return "charges"
-        if any(k in cleaned for k in ["degradation", "capacitykwh", "batteryhealth", "usablecapacity", "degradationpercent"]):
+        if any(k in cleaned for k in ["degradation", "capacitykwh", "batteryhealth", "usablecapacity", "degradationpercent", "degradacion", "saludbateria", "capacidadkwh"]):
             return "battery"
-        if any(k in cleaned for k in ["idletime", "vampire", "drain", "idleduration", "socloss"]):
+        if any(k in cleaned for k in ["idletime", "vampire", "drain", "idleduration", "socloss", "inactividad"]):
             return "idles"
-        if any(k in cleaned for k in ["distance", "energyused", "startingbattery", "startsoc", "odometerstart", "drives", "distancia"]):
+        if any(k in cleaned for k in ["distance", "energyused", "startingbattery", "startsoc", "odometerstart", "drives", "distancia", "viajes", "conduccion", "horadeinicio", "started", "startedat"]):
             return "drives"
         return "unknown"
 
@@ -55,7 +56,7 @@ def detect_tessie_type(data: Union[str, Dict, List]) -> str:
             if "idles" in data:
                 return "idles"
             # Support {"results": [...]} or {"data": [...]}
-            for key in ["results", "data", "items"]:
+            for key in ["results", "data", "items", "records"]:
                 if key in data and isinstance(data[key], list) and len(data[key]) > 0:
                     return detect_tessie_type(data[key])
             sample = data
@@ -68,11 +69,10 @@ def detect_tessie_type(data: Union[str, Dict, List]) -> str:
             return "charges"
         if any(k in sample for k in ["capacity_kwh", "degradation_percent", "battery_health", "original_capacity", "degradation"]):
             return "battery"
-        if any(k in sample for k in ["idle_time", "vampire_loss", "soc_loss", "range_loss"]):
+        if any(k in sample for k in ["idle_duration", "vampire_loss", "drain_rate"]):
             return "idles"
-        if any(k in sample for k in ["distance", "energy_used", "starting_battery", "start_soc", "odometer_start", "duration", "speed_max"]):
+        if any(k in sample for k in ["distance", "energy_used", "duration", "starting_battery", "start_soc", "odometer_start", "efficiency"]):
             return "drives"
-        return "unknown"
 
     return "unknown"
 
@@ -88,7 +88,7 @@ def _extract_list_from_json(data: Any, key_name: str) -> List[Dict[str, Any]]:
             if k in data and isinstance(data[k], list):
                 return [item for item in data[k] if isinstance(item, dict)]
         # If single object
-        if "started_at" in data or "date" in data or "timestamp" in data:
+        if "started_at" in data or "date" in data or "timestamp" in data or "start_time" in data:
             return [data]
     return []
 
@@ -96,12 +96,13 @@ def _extract_list_from_json(data: Any, key_name: str) -> List[Dict[str, Any]]:
 def parse_tessie_drives(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[Dict[str, Any]]:
     """
     Parses Tessie drives from either JSON or CSV format.
+    Supports auto-detected delimiters, units, accents, and Spanish headers.
     """
     records = []
 
     # If string, check if it's JSON first
     if isinstance(data_or_text, str):
-        stripped = data_or_text.strip()
+        stripped = data_or_text.strip().lstrip("\ufeff")
         if stripped.startswith("{") or stripped.startswith("["):
             try:
                 parsed_json = json.loads(stripped)
@@ -114,12 +115,13 @@ def parse_tessie_drives(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[D
         raw_list = _extract_list_from_json(data_or_text, "drives")
         for item in raw_list:
             start_ts = parse_timestamp(
-                item.get("started_at") or item.get("start_time") or item.get("start") or item.get("date")
+                item.get("started_at") or item.get("start_time") or item.get("start") or
+                item.get("date") or item.get("start_date") or item.get("timestamp")
             )
             if not start_ts:
                 continue
             end_ts = parse_timestamp(
-                item.get("ended_at") or item.get("end_time") or item.get("end")
+                item.get("ended_at") or item.get("end_time") or item.get("end") or item.get("end_date")
             ) or start_ts
 
             dist = safe_float(item.get("distance"))
@@ -163,54 +165,89 @@ def parse_tessie_drives(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[D
         return records
 
     # CSV path
-    if isinstance(data_or_text, str):
-        reader = csv.DictReader(io.StringIO(data_or_text))
-    else:
-        reader = csv.DictReader(data_or_text)
+    text_content = data_or_text if isinstance(data_or_text, str) else str(data_or_text)
+    text_content = text_content.lstrip("\ufeff")
+    delimiter = detect_delimiter(text_content)
+    reader = csv.DictReader(io.StringIO(text_content), delimiter=delimiter)
 
     headers = reader.fieldnames or []
-    is_km = any("km" in h.lower() for h in headers)
+    cleaned_header_list = [clean_header_key(h) for h in headers]
+    is_km = any("km" in h for h in cleaned_header_list) or any("distancia" in h for h in cleaned_header_list) or any("autonomia" in h for h in cleaned_header_list) or delimiter == ";" or any("autonomia" in h for h in cleaned_header_list) or delimiter == ";"
 
     for row in reader:
         row_map = {clean_header_key(k): v for k, v in row.items() if k}
+
+        # Multi-lingual start timestamp
         start_ts = parse_timestamp(
             row_map.get("startedat") or row_map.get("started") or row_map.get("date") or
-            row_map.get("startdate") or row_map.get("starttime") or row_map.get("start")
+            row_map.get("startdate") or row_map.get("starttime") or row_map.get("startingtime") or
+            row_map.get("start") or row_map.get("horadeinicio") or row_map.get("fechainicio") or
+            row_map.get("inicio") or row_map.get("timestamp") or row_map.get("time") or
+            row_map.get("fecha") or row_map.get("hora") or row_map.get("startat")
         )
         if not start_ts:
             continue
+
         end_ts = parse_timestamp(
             row_map.get("endedat") or row_map.get("ended") or row_map.get("enddate") or
-            row_map.get("endtime") or row_map.get("end")
+            row_map.get("endtime") or row_map.get("endingtime") or row_map.get("end") or
+            row_map.get("horadefin") or row_map.get("fechafin") or row_map.get("fin") or
+            row_map.get("horadefinalizacion") or row_map.get("endat")
         ) or start_ts
 
-        raw_dist = safe_float(
+        raw_dist_val = (
             row_map.get("distance") or row_map.get("distancekm") or row_map.get("distancemi") or
-            row_map.get("distancia") or row_map.get("miles") or row_map.get("km")
+            row_map.get("distancia") or row_map.get("miles") or row_map.get("km") or
+            row_map.get("kilometros") or row_map.get("recorrido") or ""
         )
-        dist_km = raw_dist if is_km else miles_to_km(raw_dist)
+        row_is_km = is_km or ("km" in str(raw_dist_val).lower())
+        raw_dist = safe_float(raw_dist_val)
+        dist_km = raw_dist if row_is_km else miles_to_km(raw_dist)
 
         dur_s = safe_int(
             row_map.get("duration") or row_map.get("durationseconds") or row_map.get("durations") or
-            row_map.get("time") or row_map.get("duracion")
+            row_map.get("time") or row_map.get("duracion") or row_map.get("duracionsegundos") or
+            row_map.get("tiempo")
         )
-        raw_eff = safe_float(row_map.get("efficiency") or row_map.get("whkm") or row_map.get("whmi") or row_map.get("eficiencia"))
+        if dur_s == 0 and "durationminutes" in row_map:
+            dur_s = int(safe_float(row_map.get("durationminutes")) * 60)
+        if dur_s == 0 and "duracionminutos" in row_map:
+            dur_s = int(safe_float(row_map.get("duracionminutos")) * 60)
+
+        raw_eff = safe_float(
+            row_map.get("efficiency") or row_map.get("whkm") or row_map.get("whmi") or
+            row_map.get("eficiencia") or row_map.get("rendimiento") or row_map.get("consumomedio")
+        )
         eff_wh_km = raw_eff if is_km else wh_per_mi_to_wh_per_km(raw_eff)
-        energy_kwh = safe_float(row_map.get("energyused") or row_map.get("energykwh") or row_map.get("energy") or row_map.get("energia"))
+        energy_kwh = safe_float(
+            row_map.get("energyused") or row_map.get("energykwh") or row_map.get("energy") or
+            row_map.get("energia") or row_map.get("energiausada") or row_map.get("consumo") or
+            row_map.get("consumokwh")
+        )
         if energy_kwh == 0 and dist_km > 0 and eff_wh_km > 0:
             energy_kwh = round((dist_km * eff_wh_km) / 1000.0, 2)
 
         start_soc = safe_float(
             row_map.get("startingbattery") or row_map.get("startsoc") or row_map.get("startbattery") or
-            row_map.get("startbatterylevel") or row_map.get("baterianicial")
+            row_map.get("startbatterylevel") or row_map.get("batterylevelstart") or
+            row_map.get("bateriainicial") or row_map.get("socinicio") or row_map.get("socinicial") or
+            row_map.get("bateriaprincipio")
         )
         end_soc = safe_float(
             row_map.get("endingbattery") or row_map.get("endsoc") or row_map.get("endbattery") or
-            row_map.get("endbatterylevel") or row_map.get("bateriafinal")
+            row_map.get("endbatterylevel") or row_map.get("batterylevelend") or
+            row_map.get("bateriafinal") or row_map.get("socfin") or row_map.get("socfinal") or
+            row_map.get("bateriadestino")
         )
 
-        raw_start_odo = safe_float(row_map.get("odometerstart") or row_map.get("startingodometer") or row_map.get("startodometer"))
-        raw_end_odo = safe_float(row_map.get("odometerend") or row_map.get("endingodometer") or row_map.get("endodometer"))
+        raw_start_odo = safe_float(
+            row_map.get("odometerstart") or row_map.get("startingodometer") or row_map.get("startodometer") or
+            row_map.get("odometroinicio") or row_map.get("odometroinicial") or row_map.get("odometro")
+        )
+        raw_end_odo = safe_float(
+            row_map.get("odometerend") or row_map.get("endingodometer") or row_map.get("endodometer") or
+            row_map.get("odometrofin") or row_map.get("odometrofinal")
+        )
         start_odo_km = raw_start_odo if is_km else miles_to_km(raw_start_odo)
         end_odo_km = raw_end_odo if is_km else miles_to_km(raw_end_odo)
 
@@ -225,13 +262,27 @@ def parse_tessie_drives(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[D
             "efficiency_wh_km": eff_wh_km,
             "start_soc": start_soc,
             "end_soc": end_soc,
-            "start_temp_c": safe_float(row_map.get("startingtemperature") or row_map.get("starttemp")),
-            "end_temp_c": safe_float(row_map.get("endingtemperature") or row_map.get("endtemp")),
-            "start_location": row_map.get("startlocation") or row_map.get("startaddress") or row_map.get("start") or "",
-            "end_location": row_map.get("endlocation") or row_map.get("endaddress") or row_map.get("end") or "",
+            "start_temp_c": safe_float(
+                row_map.get("startingtemperature") or row_map.get("starttemp") or row_map.get("insidetemp") or
+                row_map.get("temperaturainicial")
+            ),
+            "end_temp_c": safe_float(
+                row_map.get("endingtemperature") or row_map.get("endtemp") or row_map.get("outsidetemp") or
+                row_map.get("temperaturafinal")
+            ),
+            "start_location": str(
+                row_map.get("startlocation") or row_map.get("startaddress") or row_map.get("origin") or
+                row_map.get("origen") or row_map.get("ubicacioninicial") or row_map.get("ubicacioninicio") or ""
+            ),
+            "end_location": str(
+                row_map.get("endlocation") or row_map.get("endaddress") or row_map.get("destination") or
+                row_map.get("destino") or row_map.get("ubicacionfinal") or row_map.get("ubicacionfin") or ""
+            ),
             "start_odometer_km": start_odo_km,
             "end_odometer_km": end_odo_km,
-            "max_speed_kmh": round(safe_float(row_map.get("maxspeed") or row_map.get("speedmax")) * (1.0 if is_km else 1.60934), 1),
+            "max_speed_kmh": round(
+                safe_float(row_map.get("maxspeed") or row_map.get("speedmax") or row_map.get("velocidadmaxima") or row_map.get("velocidadmax")) * (1.0 if is_km else 1.60934), 1
+            ),
         })
 
     return records
@@ -239,13 +290,14 @@ def parse_tessie_drives(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[D
 
 def parse_tessie_charges(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[Dict[str, Any]]:
     """
-    Parses Tessie charge sessions from either JSON or CSV format.
+    Parses Tessie charges from either JSON or CSV format.
+    Supports auto-detected delimiters, units, accents, and Spanish headers.
     """
     records = []
 
     # If string, check if it's JSON first
     if isinstance(data_or_text, str):
-        stripped = data_or_text.strip()
+        stripped = data_or_text.strip().lstrip("\ufeff")
         if stripped.startswith("{") or stripped.startswith("["):
             try:
                 parsed_json = json.loads(stripped)
@@ -266,7 +318,7 @@ def parse_tessie_charges(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[
                 item.get("ended_at") or item.get("end_time") or item.get("end")
             ) or start_ts
 
-            energy = safe_float(item.get("energy_added") or item.get("charge_energy_added") or item.get("kwh_added") or item.get("energy"))
+            energy = safe_float(item.get("energy_added") or item.get("charge_energy_added") or item.get("energy_kwh") or item.get("kwh_added"))
             unit = str(item.get("distance_unit") or item.get("unit") or "").lower()
             raw_range = safe_float(item.get("range_added"))
             range_added_km = raw_range if "km" in unit else miles_to_km(raw_range)
@@ -290,36 +342,47 @@ def parse_tessie_charges(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[
         return records
 
     # CSV path
-    if isinstance(data_or_text, str):
-        reader = csv.DictReader(io.StringIO(data_or_text))
-    else:
-        reader = csv.DictReader(data_or_text)
+    text_content = data_or_text if isinstance(data_or_text, str) else str(data_or_text)
+    text_content = text_content.lstrip("\ufeff")
+    delimiter = detect_delimiter(text_content)
+    reader = csv.DictReader(io.StringIO(text_content), delimiter=delimiter)
 
     headers = reader.fieldnames or []
-    is_km = any("km" in h.lower() for h in headers)
+    cleaned_header_list = [clean_header_key(h) for h in headers]
+    is_km = any("km" in h for h in cleaned_header_list) or any("distancia" in h for h in cleaned_header_list) or any("autonomia" in h for h in cleaned_header_list) or delimiter == ";" or any("autonomia" in h for h in cleaned_header_list) or delimiter == ";"
 
     for row in reader:
         row_map = {clean_header_key(k): v for k, v in row.items() if k}
         start_ts = parse_timestamp(
             row_map.get("startedat") or row_map.get("started") or row_map.get("date") or
-            row_map.get("startdate") or row_map.get("starttime") or row_map.get("start")
+            row_map.get("startdate") or row_map.get("starttime") or row_map.get("startingtime") or
+            row_map.get("start") or row_map.get("horadeinicio") or row_map.get("fechainicio") or
+            row_map.get("inicio") or row_map.get("time") or row_map.get("fecha") or row_map.get("hora")
         )
         if not start_ts:
             continue
         end_ts = parse_timestamp(
             row_map.get("endedat") or row_map.get("ended") or row_map.get("enddate") or
-            row_map.get("endtime") or row_map.get("end")
+            row_map.get("endtime") or row_map.get("endingtime") or row_map.get("end") or
+            row_map.get("horadefin") or row_map.get("fechafin") or row_map.get("fin")
         ) or start_ts
 
         energy = safe_float(
             row_map.get("energyadded") or row_map.get("chargeenergyadded") or row_map.get("energykwh") or
-            row_map.get("energy") or row_map.get("kwhadded") or row_map.get("energiaagregada")
+            row_map.get("energy") or row_map.get("kwhadded") or row_map.get("energiaagregada") or
+            row_map.get("energiacargada") or row_map.get("cargakwh") or row_map.get("kwhcargados")
         )
-        raw_range = safe_float(row_map.get("rangeadded") or row_map.get("autonomiaagregada"))
-        range_added_km = raw_range if is_km else miles_to_km(raw_range)
+        raw_range_val = (
+            row_map.get("rangeadded") or row_map.get("autonomiaagregada") or row_map.get("autonomiaganada") or
+            row_map.get("kmagregados") or row_map.get("kmganados") or ""
+        )
+        row_is_km = is_km or ("km" in str(raw_range_val).lower())
+        raw_range = safe_float(raw_range_val)
+        range_added_km = raw_range if row_is_km else miles_to_km(raw_range)
         peak_kw = safe_float(
             row_map.get("peakkw") or row_map.get("maxchargepower") or row_map.get("peakpower") or
-            row_map.get("maxpower") or row_map.get("potenciamaxima")
+            row_map.get("maxpower") or row_map.get("potenciamaxima") or row_map.get("potenciamax") or
+            row_map.get("kwmax")
         )
 
         records.append({
@@ -327,37 +390,45 @@ def parse_tessie_charges(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[
             "vin": vin,
             "started_at": start_ts,
             "ended_at": end_ts,
-            "duration_s": safe_int(row_map.get("duration") or row_map.get("durationseconds") or row_map.get("duracion")),
+            "duration_s": safe_int(
+                row_map.get("duration") or row_map.get("durationseconds") or row_map.get("duracion") or
+                row_map.get("tiempo")
+            ),
             "energy_added_kwh": energy,
             "start_soc": safe_float(
                 row_map.get("startingbattery") or row_map.get("startsoc") or row_map.get("startbattery") or
-                row_map.get("startbatterylevel") or row_map.get("baterianicial")
+                row_map.get("startbatterylevel") or row_map.get("bateriainicial") or row_map.get("socinicio")
             ),
             "end_soc": safe_float(
                 row_map.get("endingbattery") or row_map.get("endsoc") or row_map.get("endbattery") or
-                row_map.get("endbatterylevel") or row_map.get("bateriafinal")
+                row_map.get("endbatterylevel") or row_map.get("bateriafinal") or row_map.get("socfin")
             ),
             "range_added_km": range_added_km,
             "peak_kw": peak_kw,
-            "cost": safe_float(row_map.get("cost") or row_map.get("totalcost") or row_map.get("coste")),
-            "location": row_map.get("location") or row_map.get("address") or row_map.get("ubicacion") or "",
-            "is_fast_charge": 1 if (row_map.get("fastcharger") in ("1", "true", "True", True) or
-                                   row_map.get("supercharger") in ("1", "true", "True", True) or
-                                   peak_kw > 40) else 0,
+            "cost": safe_float(
+                row_map.get("cost") or row_map.get("totalcost") or row_map.get("coste") or
+                row_map.get("costo") or row_map.get("precio") or row_map.get("importe")
+            ),
+            "location": str(
+                row_map.get("location") or row_map.get("address") or row_map.get("chargername") or
+                row_map.get("ubicacion") or row_map.get("cargador") or row_map.get("estacion") or ""
+            ),
+            "is_fast_charge": 1 if (
+                row_map.get("fastcharger") in ("1", "true", "yes", "si", "True", True) or
+                row_map.get("supercharger") in ("1", "true", "yes", "si", "True", True) or
+                row_map.get("cargadorrapido") in ("1", "true", "yes", "si", "True", True) or
+                peak_kw > 40
+            ) else 0,
         })
 
     return records
 
 
 def parse_tessie_battery_health(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[Dict[str, Any]]:
-    """
-    Parses Tessie battery health / degradation analytics (CSV or JSON).
-    """
+    """Parses Tessie battery health history from JSON or CSV."""
     records = []
-
-    # If string, check if it's JSON first
     if isinstance(data_or_text, str):
-        stripped = data_or_text.strip()
+        stripped = data_or_text.strip().lstrip("\ufeff")
         if stripped.startswith("{") or stripped.startswith("["):
             try:
                 parsed_json = json.loads(stripped)
@@ -367,56 +438,61 @@ def parse_tessie_battery_health(data_or_text: Any, vin: str = "TESLA_DEFAULT") -
 
     if isinstance(data_or_text, (dict, list)):
         raw_list = _extract_list_from_json(data_or_text, "battery_health")
-        if not raw_list and isinstance(data_or_text, dict):
-            raw_list = _extract_list_from_json(data_or_text, "battery")
         for item in raw_list:
-            ts = parse_timestamp(item.get("date") or item.get("timestamp") or item.get("reported_at"))
+            ts = parse_timestamp(item.get("timestamp") or item.get("date") or item.get("created_at"))
             if not ts:
                 continue
-            cap = safe_float(item.get("capacity_kwh") or item.get("capacity") or item.get("usable_capacity"))
-            orig_cap = safe_float(item.get("original_capacity_kwh") or item.get("original_capacity"))
-            deg = safe_float(item.get("degradation_percent") or item.get("degradation") or item.get("degradation_pct"))
-            if orig_cap == 0 and cap > 0 and deg > 0 and deg < 50:
-                orig_cap = round(cap / (1 - (deg / 100.0)), 2)
+            cap = safe_float(item.get("capacity_kwh") or item.get("usable_capacity"))
+            orig = safe_float(item.get("original_capacity_kwh") or item.get("original_capacity")) or cap
+            deg = safe_float(item.get("degradation_percent") or item.get("degradation_pct") or item.get("degradation"))
+            if deg == 0 and orig > 0 and cap > 0 and orig >= cap:
+                deg = round(((orig - cap) / orig) * 100.0, 1)
+
+            unit = str(item.get("distance_unit") or item.get("unit") or "").lower()
+            raw_range = safe_float(item.get("max_range_km") or item.get("range"))
+            range_km = raw_range if "km" in unit else miles_to_km(raw_range)
+            raw_odo = safe_float(item.get("odometer") or item.get("odometer_km"))
+            odo_km = raw_odo if "km" in unit else miles_to_km(raw_odo)
 
             records.append({
                 "provider": "tessie",
                 "vin": vin,
                 "timestamp": ts,
                 "capacity_kwh": cap,
-                "original_capacity_kwh": orig_cap if orig_cap > 0 else cap,
+                "original_capacity_kwh": orig,
                 "degradation_pct": deg,
-                "max_range_km": safe_float(item.get("estimated_range_km") or item.get("max_range") or item.get("range")),
-                "odometer_km": safe_float(item.get("odometer_km") or item.get("odometer")),
+                "max_range_km": range_km,
+                "odometer_km": odo_km,
             })
         return records
 
-    # CSV path
-    if isinstance(data_or_text, str):
-        reader = csv.DictReader(io.StringIO(data_or_text))
-    else:
-        reader = csv.DictReader(data_or_text)
+    text_content = data_or_text if isinstance(data_or_text, str) else str(data_or_text)
+    text_content = text_content.lstrip("\ufeff")
+    delimiter = detect_delimiter(text_content)
+    reader = csv.DictReader(io.StringIO(text_content), delimiter=delimiter)
 
     for row in reader:
         row_map = {clean_header_key(k): v for k, v in row.items() if k}
-        ts = parse_timestamp(row_map.get("date") or row_map.get("timestamp") or row_map.get("fecha"))
+        ts = parse_timestamp(
+            row_map.get("timestamp") or row_map.get("date") or row_map.get("fecha") or row_map.get("hora")
+        )
         if not ts:
             continue
-        cap = safe_float(row_map.get("capacitykwh") or row_map.get("capacity") or row_map.get("capacidad"))
-        deg = safe_float(row_map.get("degradationpercent") or row_map.get("degradation") or row_map.get("degradacion"))
-        orig_cap = safe_float(row_map.get("originalcapacitykwh") or row_map.get("originalcapacity"))
-        if orig_cap == 0 and cap > 0 and deg > 0 and deg < 50:
-            orig_cap = round(cap / (1 - (deg / 100.0)), 2)
-
+        cap = safe_float(row_map.get("capacitykwh") or row_map.get("capacidadkwh") or row_map.get("usablecapacity"))
+        orig = safe_float(row_map.get("originalcapacitykwh") or row_map.get("capacidadoriginal")) or cap
+        deg = safe_float(
+            row_map.get("degradationpercent") or row_map.get("degradationpct") or row_map.get("degradation") or
+            row_map.get("degradacion") or row_map.get("porcentajedegradacion")
+        )
         records.append({
             "provider": "tessie",
             "vin": vin,
             "timestamp": ts,
             "capacity_kwh": cap,
-            "original_capacity_kwh": orig_cap if orig_cap > 0 else cap,
+            "original_capacity_kwh": orig,
             "degradation_pct": deg,
-            "max_range_km": safe_float(row_map.get("estimatedrangekm") or row_map.get("maxrange")),
-            "odometer_km": safe_float(row_map.get("odometerkm") or row_map.get("odometer")),
+            "max_range_km": safe_float(row_map.get("maxrangekm") or row_map.get("autonomia100")),
+            "odometer_km": safe_float(row_map.get("odometerkm") or row_map.get("odometro")),
         })
 
     return records

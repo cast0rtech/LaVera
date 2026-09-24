@@ -34,7 +34,7 @@ if parent_dir not in sys.path:
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from importer.normalizer import parse_timestamp, clean_header_key
+from importer.normalizer import parse_timestamp, clean_header_key, decode_file_bytes, detect_delimiter
 from importer.teslafi_parser import (
     detect_teslafi_type,
     parse_teslafi_drives,
@@ -353,7 +353,7 @@ class LaVeraRequestHandler(SimpleHTTPRequestHandler):
                 fields = parse_multipart_payload(body, content_type)
 
                 file_bytes = fields.get("file", b"")
-                content_str = file_bytes.decode("utf-8", errors="replace")
+                content_str = decode_file_bytes(file_bytes).lstrip("\ufeff")
 
                 vin = fields.get("vin", b"TESLA_IMPORTED")
                 if isinstance(vin, bytes):
@@ -390,7 +390,8 @@ class LaVeraRequestHandler(SimpleHTTPRequestHandler):
                                     detected_type = "battery"
                 else:
                     first_line = content_str.splitlines()[0] if content_str else ""
-                    headers = first_line.split(",")
+                    delim = detect_delimiter(content_str)
+                    headers = [h.strip() for h in first_line.split(delim)]
                     cleaned_headers = [clean_header_key(h) for h in headers]
                     is_teslafi = any(k in cleaned_headers for k in [
                         "startrange", "endrange", "rangeused", "chargerate", "maxchargerate",
@@ -414,6 +415,20 @@ class LaVeraRequestHandler(SimpleHTTPRequestHandler):
                             recs = parse_teslafi_drives(content_str, vin=vin)
                             imported_count = storage.writer.write_drives(recs)
                             detected_type = "drives"
+
+                        # Universal fallback if 0 imported
+                        if imported_count == 0:
+                            recs = parse_tessie_drives(content_str, vin=vin)
+                            imported_count = storage.writer.write_drives(recs)
+                            if imported_count > 0:
+                                source = "tessie"
+                                detected_type = "drives"
+                            else:
+                                recs = parse_tessie_charges(content_str, vin=vin)
+                                imported_count = storage.writer.write_charges(recs)
+                                if imported_count > 0:
+                                    source = "tessie"
+                                    detected_type = "charges"
                     else:
                         source = "tessie"
                         detected_type = detect_tessie_type(content_str)
@@ -433,6 +448,25 @@ class LaVeraRequestHandler(SimpleHTTPRequestHandler):
                                 imported_count = storage.writer.write_charges(recs)
                                 if imported_count > 0:
                                     detected_type = "charges"
+                                else:
+                                    recs = parse_tessie_battery_health(content_str, vin=vin)
+                                    imported_count = storage.writer.write_battery_health(recs)
+                                    if imported_count > 0:
+                                        detected_type = "battery"
+
+                        # Universal fallback if 0 imported
+                        if imported_count == 0:
+                            recs = parse_teslafi_drives(content_str, vin=vin)
+                            imported_count = storage.writer.write_drives(recs)
+                            if imported_count > 0:
+                                source = "teslafi"
+                                detected_type = "drives"
+                            else:
+                                recs = parse_teslafi_charges(content_str, vin=vin)
+                                imported_count = storage.writer.write_charges(recs)
+                                if imported_count > 0:
+                                    source = "teslafi"
+                                    detected_type = "charges" 
 
                 self._send_json({
                     "status": "success",

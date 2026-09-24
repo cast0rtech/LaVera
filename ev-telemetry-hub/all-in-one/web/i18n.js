@@ -56,6 +56,7 @@ const TRANSLATIONS = {
     th_consumption: "Consumo",
     th_efficiency: "Eficiencia",
     th_soc: "SoC Batería",
+    th_autopilot: "🤖 Piloto Automático",
     th_source: "Origen",
 
     // Charges Table
@@ -176,6 +177,7 @@ const TRANSLATIONS = {
     th_consumption: "Consumption",
     th_efficiency: "Efficiency",
     th_soc: "Battery SoC",
+    th_autopilot: "🤖 Autopilot",
     th_source: "Source",
 
     charges_title: "Charging Sessions",

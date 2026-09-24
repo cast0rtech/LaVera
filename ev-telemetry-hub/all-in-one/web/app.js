@@ -152,7 +152,7 @@ async function loadDrives() {
     if (countBadge) countBadge.innerText = `${drives.length} ${t("drives_shown")}`;
 
     if (drives.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="text-center">${t("drives_empty")}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center">${t("drives_empty")}</td></tr>`;
       return;
     }
 
@@ -160,6 +160,13 @@ async function loadDrives() {
       const fromTo = (d.start_location || "Desconocido") + " → " + (d.end_location || "Desconocido");
       const durationMin = Math.round((d.duration_s || 0) / 60);
       const socChange = `${d.start_soc}% → ${d.end_soc}%`;
+
+      const apPct = d.autopilot_pct || 0;
+      const apKm = d.autopilot_km || 0;
+      const apBadge = (apPct > 0 || apKm > 0)
+        ? `<span class="badge vehicle-badge">🤖 ${apPct > 0 ? apPct + '%' : ''} (${apKm} km)</span>`
+        : `<span class="badge" style="opacity:0.6;">Manual</span>`;
+
       return `
         <tr>
           <td>${formatDate(d.started_at)}</td>
@@ -169,6 +176,7 @@ async function loadDrives() {
           <td>${d.energy_kwh} kWh</td>
           <td>${d.efficiency_wh_km} Wh/km</td>
           <td>${socChange}</td>
+          <td>${apBadge}</td>
           <td><span class="badge info">${(d.provider || "Auto").toUpperCase()}</span></td>
         </tr>
       `;

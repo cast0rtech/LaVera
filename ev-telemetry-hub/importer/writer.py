@@ -93,6 +93,9 @@ class TelemetryWriter:
                     start_odometer_km REAL,
                     end_odometer_km REAL,
                     max_speed_kmh REAL,
+                    autopilot_km REAL,
+                    autopilot_duration_s INTEGER,
+                    autopilot_pct REAL,
                     raw_json TEXT,
                     UNIQUE(vin, started_at)
                 );
@@ -164,6 +167,14 @@ class TelemetryWriter:
                     UNIQUE(vin, started_at)
                 );
             """)
+
+            # Run column migrations for existing SQLite databases
+            for col, col_type in [("autopilot_km", "REAL"), ("autopilot_duration_s", "INTEGER"), ("autopilot_pct", "REAL")]:
+                try:
+                    cursor.execute(f"ALTER TABLE drives ADD COLUMN {col} {col_type};")
+                except sqlite3.Error:
+                    pass
+
             conn.commit()
         finally:
             conn.close()
@@ -183,8 +194,9 @@ class TelemetryWriter:
                             provider, vin, started_at, ended_at, duration_s, distance_km,
                             energy_kwh, efficiency_wh_km, start_soc, end_soc, start_temp_c,
                             end_temp_c, start_location, end_location, start_odometer_km,
-                            end_odometer_km, max_speed_kmh, raw_json
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            end_odometer_km, max_speed_kmh, autopilot_km, autopilot_duration_s,
+                            autopilot_pct, raw_json
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         d.get("provider", "unknown"),
                         d.get("vin", "DEFAULT"),
@@ -203,6 +215,9 @@ class TelemetryWriter:
                         d.get("start_odometer_km", 0.0),
                         d.get("end_odometer_km", 0.0),
                         d.get("max_speed_kmh", 0.0),
+                        d.get("autopilot_km", 0.0),
+                        d.get("autopilot_duration_s", 0),
+                        d.get("autopilot_pct", 0.0),
                         json.dumps(d)
                     ))
                     inserted += 1

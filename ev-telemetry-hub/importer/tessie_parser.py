@@ -143,6 +143,25 @@ def parse_tessie_drives(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[D
             start_odo_km = start_odo if "km" in unit else miles_to_km(start_odo)
             end_odo_km = end_odo if "km" in unit else miles_to_km(end_odo)
 
+            # Autopilot / Piloto Automático metrics
+            raw_ap_dist = safe_float(
+                item.get("autopilot_distance") or item.get("autosteer_distance") or item.get("fsd_distance") or
+                item.get("autopilot_km") or item.get("autopilot_miles")
+            )
+            ap_dist_km = raw_ap_dist if "km" in unit else miles_to_km(raw_ap_dist)
+
+            ap_dur_s = safe_int(
+                item.get("autopilot_duration") or item.get("autosteer_duration") or item.get("fsd_duration") or
+                item.get("autopilot_seconds") or item.get("autopilot_s")
+            )
+
+            ap_pct = safe_float(
+                item.get("autopilot_percent") or item.get("autopilot_pct") or item.get("autosteer_percent") or
+                item.get("autopilot")
+            )
+            if ap_pct == 0 and dist_km > 0 and ap_dist_km > 0:
+                ap_pct = round((ap_dist_km / dist_km) * 100.0, 1)
+
             records.append({
                 "provider": "tessie",
                 "vin": vin,
@@ -161,6 +180,9 @@ def parse_tessie_drives(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[D
                 "start_odometer_km": start_odo_km,
                 "end_odometer_km": end_odo_km,
                 "max_speed_kmh": round(safe_float(item.get("speed_max") or item.get("max_speed")) * (1.0 if "km" in unit else 1.60934), 1),
+                "autopilot_km": ap_dist_km,
+                "autopilot_duration_s": ap_dur_s,
+                "autopilot_pct": ap_pct,
             })
         return records
 

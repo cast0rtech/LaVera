@@ -8,35 +8,44 @@
 </head>
 <body>
   <div class="app-layout">
-    <!-- Sidebar / Header -->
+    <!-- Header with Castor Tech Logo & Language Selector -->
     <header class="app-header">
       <div class="brand">
-        <span class="brand-icon">?</span>
+        <img src="castor_logo.svg" alt="Castor Tech Logo" class="brand-logo-img">
         <div>
           <h1>LaVera <span class="badge">Hub</span></h1>
-          <p class="subtitle">Universal EV Telemetry & Offline Analytics</p>
+          <p class="subtitle" data-i18n="app_subtitle">Telemetría EV Universal & Analítica Offline</p>
         </div>
       </div>
       <div class="header-status">
         <span class="status-indicator online"></span>
-        <span id="conn-status">Modo Local Offline</span>
+        <span id="conn-status" data-i18n="mode_local">Modo Local Offline</span>
         <span class="badge vehicle-badge" id="current-vin">Tesla Model 3/Y</span>
       </div>
-          <div class="header-actions" id="header-actions">
-        <button class="btn btn-sm btn-outline" id="btn-quick-demo" title="Cargar datos de ejemplo realistas">🌱 Cargar Demo</button>
-        <button class="btn btn-sm btn-outline" id="btn-quick-sync" title="Ir a sincronización online">⚡ Conectar API</button>
+      <div class="header-actions" id="header-actions">
+        <!-- Language Selector -->
+        <select id="lang-select" class="lang-select" onchange="i18n.setLanguage(this.value)">
+          <option value="es">🇪🇸 Español</option>
+          <option value="en">🇬🇧 English</option>
+          <option value="de">🇩🇪 Deutsch</option>
+          <option value="fr">🇫🇷 Français</option>
+          <option value="it">🇮🇹 Italiano</option>
+          <option value="zh-tw">🇭🇰 繁體中文</option>
+        </select>
+        <button class="btn btn-sm btn-outline" id="btn-quick-demo" data-i18n="btn_demo">🌱 Cargar Demo</button>
+        <button class="btn btn-sm btn-outline" id="btn-quick-sync" data-i18n="btn_api">⚡ Conectar API</button>
       </div>
     </header>
 
     <!-- Navigation Tabs -->
     <nav class="nav-tabs">
-      <button class="tab-btn active" data-tab="overview">?? Visi?n General</button>
-      <button class="tab-btn" data-tab="drives">?? Conducciones</button>
-      <button class="tab-btn" data-tab="charges">?? Cargas</button>
-      <button class="tab-btn" data-tab="battery">?? Salud Bater?a</button>
-      <button class="tab-btn" data-tab="importer">?? Importar Tessie / TeslaFi</button>
-      <button class="tab-btn" data-tab="online">🔗 Conexión Online & APIs</button>
-      <button class="tab-btn" data-tab="export">?? Copia de Seguridad</button>
+      <button class="tab-btn active" data-tab="overview" data-i18n="tab_overview">📊 Visión General</button>
+      <button class="tab-btn" data-tab="drives" data-i18n="tab_drives">🚗 Conducciones</button>
+      <button class="tab-btn" data-tab="charges" data-i18n="tab_charges">⚡ Cargas</button>
+      <button class="tab-btn" data-tab="battery" data-i18n="tab_battery">🔋 Salud Batería</button>
+      <button class="tab-btn" data-tab="importer" data-i18n="tab_importer">📥 Importar Tessie / TeslaFi</button>
+      <button class="tab-btn" data-tab="online" data-i18n="tab_online">🔗 Conexión Online & APIs</button>
+      <button class="tab-btn" data-tab="export" data-i18n="tab_export">💾 Copia de Seguridad</button>
     </nav>
 
     <!-- Main Content Container -->
@@ -49,37 +58,38 @@
           <div class="empty-banner-content">
             <span class="empty-icon">💡</span>
             <div>
-              <h4>Base de Datos Local Vacía</h4>
-              <p>No hay datos guardados aún en tu base de datos local SQLite. Puedes sincronizar directamente con la API de Tessie, subir tus archivos de exportación, o cargar datos de demostración para explorar la interfaz.</p>
+              <h4 data-i18n="empty_title">Base de Datos Local Vacía</h4>
+              <p data-i18n="empty_desc">No hay datos guardados aún en tu base de datos local SQLite. Puedes sincronizar directamente con la API de Tessie, subir tus archivos de exportación, o cargar datos de demostración para explorar la interfaz.</p>
             </div>
           </div>
           <div class="empty-banner-actions">
-            <button class="btn btn-sm btn-primary" onclick="switchTab('online')">🔗 Conectar API Tessie</button>
-            <button class="btn btn-sm btn-secondary" onclick="switchTab('importer')">📁 Subir Archivo</button>
-            <button class="btn btn-sm btn-outline" id="btn-empty-demo">🌱 Cargar Demo</button>
+            <button class="btn btn-sm btn-primary" onclick="switchTab('online')" data-i18n="btn_connect_tessie">🔗 Conectar API Tessie</button>
+            <button class="btn btn-sm btn-secondary" onclick="switchTab('importer')" data-i18n="btn_upload_file">📁 Subir Archivo</button>
+            <button class="btn btn-sm btn-outline" id="btn-empty-demo" data-i18n="btn_demo">🌱 Cargar Demo</button>
           </div>
         </div>
+
         <!-- KPI Cards Grid -->
         <div class="kpi-grid">
           <div class="card kpi-card">
-            <div class="kpi-title">Distancia Total</div>
+            <div class="kpi-title" data-i18n="kpi_distance_title">Distancia Total</div>
             <div class="kpi-value" id="kpi-distance">-- <span class="unit">km</span></div>
-            <div class="kpi-sub" id="kpi-odometer">Od?metro: -- km</div>
+            <div class="kpi-sub" id="kpi-odometer"><span data-i18n="kpi_odometer">Odómetro:</span> -- km</div>
           </div>
           <div class="card kpi-card">
-            <div class="kpi-title">Eficiencia Media</div>
+            <div class="kpi-title" data-i18n="kpi_efficiency_title">Eficiencia Media</div>
             <div class="kpi-value" id="kpi-efficiency">-- <span class="unit">Wh/km</span></div>
-            <div class="kpi-sub" id="kpi-energy">Consumo: -- kWh</div>
+            <div class="kpi-sub" id="kpi-energy"><span data-i18n="kpi_consumption">Consumo Total:</span> -- kWh</div>
           </div>
           <div class="card kpi-card">
-            <div class="kpi-title">Energ?a Cargada</div>
+            <div class="kpi-title" data-i18n="kpi_charged_title">Energía Cargada</div>
             <div class="kpi-value" id="kpi-charged">-- <span class="unit">kWh</span></div>
-            <div class="kpi-sub" id="kpi-charges-count">-- sesiones de carga</div>
+            <div class="kpi-sub" id="kpi-charges-count">-- <span data-i18n="kpi_sessions">sesiones de carga</span></div>
           </div>
           <div class="card kpi-card">
-            <div class="kpi-title">Salud Bater?a (SOH)</div>
+            <div class="kpi-title" data-i18n="kpi_health_title">Salud Batería (SOH)</div>
             <div class="kpi-value" id="kpi-health">-- <span class="unit">%</span></div>
-            <div class="kpi-sub" id="kpi-degradation">Degradaci?n: --%</div>
+            <div class="kpi-sub" id="kpi-degradation"><span data-i18n="kpi_degradation">Degradación:</span> --%</div>
           </div>
         </div>
 
@@ -87,8 +97,8 @@
         <div class="charts-grid">
           <div class="card chart-card">
             <div class="card-header">
-              <h3>Curva de Degradaci?n y Capacidad (kWh)</h3>
-              <span class="badge info">Hist?rico Real</span>
+              <h3 data-i18n="chart_degradation_title">Curva de Degradación y Capacidad (kWh)</h3>
+              <span class="badge info" data-i18n="chart_degradation_badge">Histórico Real</span>
             </div>
             <div class="canvas-container">
               <canvas id="chart-degradation"></canvas>
@@ -96,15 +106,15 @@
           </div>
           <div class="card chart-card">
             <div class="card-header">
-              <h3>Estado de Carga y Telemetr?a</h3>
-              <span class="badge success" id="live-state-badge">Standby</span>
+              <h3 data-i18n="chart_gauge_title">Estado de Carga y Telemetría</h3>
+              <span class="badge success" id="live-state-badge" data-i18n="badge_standby">Standby</span>
             </div>
             <div class="canvas-container gauge-box">
               <canvas id="chart-gauge"></canvas>
               <div class="gauge-details">
-                <div class="gauge-metric"><span class="label">Bater?a Actual:</span> <strong id="gauge-soc-text">--%</strong></div>
-                <div class="gauge-metric"><span class="label">Temp. Pack:</span> <strong id="gauge-temp-text">--?C</strong></div>
-                <div class="gauge-metric"><span class="label">Potencia:</span> <strong id="gauge-power-text">-- kW</strong></div>
+                <div class="gauge-metric"><span class="label" data-i18n="gauge_soc">Batería Actual:</span> <strong id="gauge-soc-text">--%</strong></div>
+                <div class="gauge-metric"><span class="label" data-i18n="gauge_temp">Temp. Pack:</span> <strong id="gauge-temp-text">--°C</strong></div>
+                <div class="gauge-metric"><span class="label" data-i18n="gauge_power">Potencia:</span> <strong id="gauge-power-text">-- kW</strong></div>
               </div>
             </div>
           </div>
@@ -115,25 +125,25 @@
       <section id="tab-drives" class="tab-pane">
         <div class="card">
           <div class="card-header">
-            <h3>Hist?rico de Conducciones</h3>
-            <span class="card-action" id="drives-count-badge">0 viajes registrados</span>
+            <h3 data-i18n="drives_title">Histórico de Conducciones</h3>
+            <span class="card-action" id="drives-count-badge">0 <span data-i18n="drives_shown">viajes mostrados</span></span>
           </div>
           <div class="table-responsive">
             <table class="data-table" id="table-drives">
               <thead>
                 <tr>
-                  <th>Fecha & Hora</th>
-                  <th>Origen ? Destino</th>
-                  <th>Distancia</th>
-                  <th>Duraci?n</th>
-                  <th>Consumo</th>
-                  <th>Eficiencia</th>
-                  <th>SoC Bater?a</th>
-                  <th>Origen</th>
+                  <th data-i18n="th_datetime">Fecha & Hora</th>
+                  <th data-i18n="th_route">Origen → Destino</th>
+                  <th data-i18n="th_distance">Distancia</th>
+                  <th data-i18n="th_duration">Duración</th>
+                  <th data-i18n="th_consumption">Consumo</th>
+                  <th data-i18n="th_efficiency">Eficiencia</th>
+                  <th data-i18n="th_soc">SoC Batería</th>
+                  <th data-i18n="th_source">Origen</th>
                 </tr>
               </thead>
               <tbody>
-                <tr><td colspan="8" class="text-center">No hay registros de conducci?n. Importa datos de Tessie o TeslaFi.</td></tr>
+                <tr><td colspan="8" class="text-center" data-i18n="drives_empty">No hay registros de conducción. Importa datos de Tessie o TeslaFi.</td></tr>
               </tbody>
             </table>
           </div>
@@ -144,25 +154,25 @@
       <section id="tab-charges" class="tab-pane">
         <div class="card">
           <div class="card-header">
-            <h3>Sesiones de Carga</h3>
-            <span class="card-action" id="charges-count-badge">0 cargas registradas</span>
+            <h3 data-i18n="charges_title">Sesiones de Carga</h3>
+            <span class="card-action" id="charges-count-badge">0 <span data-i18n="charges_shown">cargas mostradas</span></span>
           </div>
           <div class="table-responsive">
             <table class="data-table" id="table-charges">
               <thead>
                 <tr>
-                  <th>Fecha & Hora</th>
-                  <th>Ubicaci?n</th>
-                  <th>Energ?a A?adida</th>
-                  <th>Rango Ganado</th>
-                  <th>Potencia M?x</th>
-                  <th>SoC (Ini ? Fin)</th>
-                  <th>Coste</th>
-                  <th>Tipo</th>
+                  <th data-i18n="th_datetime">Fecha & Hora</th>
+                  <th data-i18n="th_location">Ubicación</th>
+                  <th data-i18n="th_energy_added">Energía Añadida</th>
+                  <th data-i18n="th_range_added">Rango Ganado</th>
+                  <th data-i18n="th_peak_power">Potencia Máx</th>
+                  <th data-i18n="th_soc_range">SoC (Ini → Fin)</th>
+                  <th data-i18n="th_cost">Coste</th>
+                  <th data-i18n="th_type">Tipo</th>
                 </tr>
               </thead>
               <tbody>
-                <tr><td colspan="8" class="text-center">No hay sesiones de carga registradas.</td></tr>
+                <tr><td colspan="8" class="text-center" data-i18n="charges_empty">No hay sesiones de carga registradas.</td></tr>
               </tbody>
             </table>
           </div>
@@ -173,23 +183,23 @@
       <section id="tab-battery" class="tab-pane">
         <div class="card">
           <div class="card-header">
-            <h3>Hist?rico de Capacidad y Estado de Degradaci?n</h3>
+            <h3 data-i18n="battery_title">Histórico de Capacidad y Estado de Degradación</h3>
           </div>
           <div class="table-responsive">
             <table class="data-table" id="table-battery">
               <thead>
                 <tr>
-                  <th>Fecha</th>
-                  <th>Capacidad Actual</th>
-                  <th>Capacidad F?brica</th>
-                  <th>Degradaci?n (%)</th>
-                  <th>Autonom?a 100%</th>
-                  <th>Od?metro</th>
-                  <th>Fuente</th>
+                  <th data-i18n="th_date">Fecha</th>
+                  <th data-i18n="th_curr_cap">Capacidad Actual</th>
+                  <th data-i18n="th_orig_cap">Capacidad Fábrica</th>
+                  <th data-i18n="th_degradation_pct">Degradación (%)</th>
+                  <th data-i18n="th_range_100">Autonomía 100%</th>
+                  <th data-i18n="th_odometer_col">Odómetro</th>
+                  <th data-i18n="th_source">Fuente</th>
                 </tr>
               </thead>
               <tbody>
-                <tr><td colspan="7" class="text-center">Sin m?tricas de bater?a cargadas.</td></tr>
+                <tr><td colspan="7" class="text-center" data-i18n="battery_empty">Sin métricas de batería cargadas.</td></tr>
               </tbody>
             </table>
           </div>
@@ -200,22 +210,21 @@
       <section id="tab-importer" class="tab-pane">
         <div class="card">
           <div class="card-header">
-            <h3>Importador de Datos de Tesla (Tessie & TeslaFi)</h3>
-            <span class="badge info">Procesamiento 100% Local</span>
+            <h3 data-i18n="importer_title">Importador de Datos de Tesla (Tessie & TeslaFi)</h3>
+            <span class="badge info" data-i18n="importer_badge">Procesamiento 100% Local</span>
           </div>
           <div class="importer-content">
-            <p class="description">
-              Sube directamente tus exportaciones descargadas desde <strong>Tessie</strong> (archivos <code>.json</code> o <code>.csv</code>) o <strong>TeslaFi</strong> (archivos <code>drives.csv</code>, <code>charges.csv</code>, <code>idles.csv</code>, o <code>calendar.csv</code>). 
-              El motor de LaVera detectar? autom?ticamente el formato, normalizar? unidades (millas/km, ?F/?C, Wh/mi) y almacenar? los datos de forma persistente.
+            <p class="description" data-i18n="importer_desc">
+              Sube directamente tus exportaciones descargadas desde Tessie (archivos .json o .csv) o TeslaFi (archivos drives.csv, charges.csv, idles.csv, o calendar.csv). El motor de LaVera detectará automáticamente el formato, normalizará unidades (millas/km, °F/°C, Wh/mi) y almacenará los datos de forma persistente.
             </p>
 
             <!-- Drag & Drop Zone -->
             <div class="drop-zone" id="drop-zone">
-              <div class="drop-icon">??</div>
-              <h4>Arrastra tus archivos de Tessie o TeslaFi aqu?</h4>
-              <p>O haz clic para seleccionar archivos CSV o JSON desde tu dispositivo</p>
+              <div class="drop-icon">☁️</div>
+              <h4 data-i18n="drop_title">Arrastra tus archivos de Tessie o TeslaFi aquí</h4>
+              <p data-i18n="drop_sub">O haz clic para seleccionar archivos CSV o JSON desde tu dispositivo</p>
               <input type="file" id="file-input" accept=".csv,.json" multiple style="display:none">
-              <button class="btn btn-primary" id="btn-browse">Seleccionar Archivo</button>
+              <button class="btn btn-primary" id="btn-browse" data-i18n="btn_select_file">Seleccionar Archivo</button>
             </div>
 
             <!-- Upload Status / Alert -->
@@ -223,50 +232,48 @@
 
             <!-- Import Guidelines -->
             <div class="help-box">
-              <h4>?? ?C?mo obtener tus archivos de exportaci?n?</h4>
+              <h4 data-i18n="help_title">💡 ¿Cómo obtener tus archivos de exportación?</h4>
               <ul>
-                <li><strong>Tessie:</strong> Abre la app o web de Tessie ? Ajustes ? Exportar Datos ? Descarga el historial en formato CSV o JSON.</li>
-                <li><strong>TeslaFi:</strong> Entra en TeslaFi.com ? Men? <em>Drives</em>, <em>Charges</em> o <em>Battery Report</em> ? Haz clic en <em>Export to CSV</em>.</li>
+                <li data-i18n="help_tessie">Tessie: Abre la app o web de Tessie → Ajustes → Exportar Datos → Descarga el historial en formato CSV o JSON.</li>
+                <li data-i18n="help_teslafi">TeslaFi: Entra en TeslaFi.com → Menú Drives, Charges o Battery Report → Haz clic en Export to CSV.</li>
               </ul>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- TAB 6: EXPORT -->
-            <!-- TAB 7: ONLINE SYNC & APIS -->
+      <!-- TAB 6: ONLINE SYNC & APIS -->
       <section id="tab-online" class="tab-pane">
         <!-- Tessie Cloud Sync Card -->
         <div class="card mb-4">
           <div class="card-header">
             <div class="header-with-badge">
-              <h3>⚡ Conexión Online con Tessie Cloud API</h3>
-              <span class="badge" id="tessie-conn-badge">Desconectado</span>
+              <h3 data-i18n="online_tessie_title">⚡ Conexión Online con Tessie Cloud API</h3>
+              <span class="badge" id="tessie-conn-badge" data-i18n="badge_disconnected">Desconectado</span>
             </div>
-            <span class="badge info">Sincronización Automática</span>
+            <span class="badge info" data-i18n="sync_auto">Sincronización Automática</span>
           </div>
           <div class="online-content">
-            <p class="description">
-              Conecta LaVera Hub directamente con los servidores de <strong>Tessie</strong> utilizando tu <em>Personal Access Token</em>.
-              Esto permite descargar automáticamente tus viajes, sesiones de carga, curva de salud de batería y telemetría en vivo sin necesidad de exportar archivos manualmente.
+            <p class="description" data-i18n="online_tessie_desc">
+              Conecta LaVera Hub directamente con los servidores de Tessie utilizando tu Personal Access Token. Esto permite descargar automáticamente tus viajes, sesiones de carga, curva de salud de batería y telemetría en vivo sin necesidad de exportar archivos manualmente.
             </p>
 
             <div class="form-grid">
               <div class="form-group">
-                <label for="tessie-token-input">Token de Acceso de Tessie (Personal Access Token):</label>
+                <label for="tessie-token-input" data-i18n="lbl_token">Token de Acceso de Tessie (Personal Access Token):</label>
                 <div class="input-with-button">
                   <input type="password" id="tessie-token-input" class="form-control" placeholder="Pega aquí tu token (ej: tess_sec_...)">
                   <button class="btn btn-outline" id="btn-toggle-token" type="button">👁️</button>
                 </div>
-                <small class="form-hint">
-                  ¿Cómo conseguirlo? Inicia sesión en <a href="https://dash.tessie.com/settings/api" target="_blank" rel="noopener">dash.tessie.com/settings/api</a> o en la app de Tessie (Ajustes &gt; Desarrollador / API &gt; Generate Token).
+                <small class="form-hint" data-i18n="token_hint">
+                  ¿Cómo conseguirlo? Inicia sesión en dash.tessie.com/settings/api o en la app de Tessie (Ajustes &gt; Desarrollador / API &gt; Generate Token).
                 </small>
               </div>
 
               <div class="form-group">
-                <label for="tessie-vin-select">Vehículo Detectado / VIN:</label>
+                <label for="tessie-vin-select" data-i18n="lbl_vin">Vehículo Detectado / VIN:</label>
                 <select id="tessie-vin-select" class="form-control">
-                  <option value="">-- Haz clic en "Probar Conexión" para detectar vehículos --</option>
+                  <option value="" data-i18n="opt_vin_default">-- Haz clic en "Probar Conexión" para detectar vehículos --</option>
                 </select>
               </div>
             </div>
@@ -274,23 +281,23 @@
             <!-- Options Checkboxes -->
             <div class="sync-options">
               <label class="checkbox-label">
-                <input type="checkbox" id="sync-opt-drives" checked> Sincronizar Histórico de Conducciones (Drives)
+                <input type="checkbox" id="sync-opt-drives" checked> <span data-i18n="opt_drives">Sincronizar Histórico de Conducciones (Drives)</span>
               </label>
               <label class="checkbox-label">
-                <input type="checkbox" id="sync-opt-charges" checked> Sincronizar Histórico de Cargas (Charges)
+                <input type="checkbox" id="sync-opt-charges" checked> <span data-i18n="opt_charges">Sincronizar Histórico de Cargas (Charges)</span>
               </label>
               <label class="checkbox-label">
-                <input type="checkbox" id="sync-opt-battery" checked> Sincronizar Salud y Degradación de Batería
+                <input type="checkbox" id="sync-opt-battery" checked> <span data-i18n="opt_battery">Sincronizar Salud y Degradación de Batería</span>
               </label>
               <label class="checkbox-label">
-                <input type="checkbox" id="sync-opt-save-token" checked> Guardar Token de forma persistente en SQLite local
+                <input type="checkbox" id="sync-opt-save-token" checked> <span data-i18n="opt_save_token">Guardar Token de forma persistente en SQLite local</span>
               </label>
             </div>
 
             <!-- Action Buttons -->
             <div class="actions-row mt-3">
-              <button class="btn btn-secondary" id="btn-test-tessie">🔍 Probar Conexión & Detectar Coches</button>
-              <button class="btn btn-primary" id="btn-sync-tessie">⚡ Sincronizar Todo Ahora</button>
+              <button class="btn btn-secondary" id="btn-test-tessie" data-i18n="btn_test_conn">🔍 Probar Conexión & Detectar Coches</button>
+              <button class="btn btn-primary" id="btn-sync-tessie" data-i18n="btn_sync_now">⚡ Sincronizar Todo Ahora</button>
             </div>
 
             <!-- Status Alert for Sync -->
@@ -301,11 +308,11 @@
         <!-- Direct Live Telemetry Webhook Card -->
         <div class="card mb-4">
           <div class="card-header">
-            <h3>📡 Recepción de Telemetría Directa en Tiempo Real</h3>
+            <h3 data-i18n="webhook_title">📡 Recepción de Telemetría Directa en Tiempo Real</h3>
             <span class="badge success">Local Webhook</span>
           </div>
           <div class="online-content">
-            <p class="description">
+            <p class="description" data-i18n="webhook_desc">
               Puedes enviar métricas en vivo en tiempo real directamente a LaVera Hub desde el navegador del Tesla, Home Assistant, Tasker, apps de OBD2 o scripts automatizados.
             </p>
             <div class="code-box">
@@ -313,7 +320,7 @@
                 <span>Endpoint HTTP POST</span>
                 <span class="badge">JSON</span>
               </div>
-              <pre><code>POST http://localhost:8080/api/telemetry
+              <pre><code>POST http://localhost:8088/api/telemetry
 Content-Type: application/json
 
 {
@@ -332,46 +339,47 @@ Content-Type: application/json
         <!-- Local SQLite Database Management Card -->
         <div class="card">
           <div class="card-header">
-            <h3>💾 Gestión de Datos Guardados Localmente</h3>
+            <h3 data-i18n="db_title">💾 Gestión de Datos Guardados Localmente</h3>
             <span class="badge info">SQLite Persistente</span>
           </div>
           <div class="online-content">
-            <p class="description">
-              Toda la información se almacena 100% de forma soberana y local en tu equipo en el archivo <code>ev-telemetry-hub/all-in-one/data/lavera.db</code>.
+            <p class="description" data-i18n="db_desc">
+              Toda la información se almacena 100% de forma soberana y local en tu equipo en la base de datos SQLite.
             </p>
             <div class="db-stats-grid">
               <div class="db-stat-item">
                 <span class="db-stat-num" id="db-stat-drives">0</span>
-                <span class="db-stat-label">Viajes Guardados</span>
+                <span class="db-stat-label" data-i18n="db_drives_saved">Viajes Guardados</span>
               </div>
               <div class="db-stat-item">
                 <span class="db-stat-num" id="db-stat-charges">0</span>
-                <span class="db-stat-label">Cargas Guardadas</span>
+                <span class="db-stat-label" data-i18n="db_charges_saved">Cargas Guardadas</span>
               </div>
               <div class="db-stat-item">
                 <span class="db-stat-num" id="db-stat-battery">0</span>
-                <span class="db-stat-label">Registros Batería</span>
+                <span class="db-stat-label" data-i18n="db_battery_records">Registros Batería</span>
               </div>
             </div>
 
             <div class="actions-row mt-3">
-              <button class="btn btn-outline" id="btn-seed-demo-tab">🌱 Cargar Datos de Demostración</button>
-              <button class="btn btn-danger-outline" id="btn-clear-db-tab">🗑️ Vaciar Base de Datos Local</button>
+              <button class="btn btn-outline" id="btn-seed-demo-tab" data-i18n="btn_seed_demo">🌱 Cargar Datos de Demostración</button>
+              <button class="btn btn-danger-outline" id="btn-clear-db-tab" data-i18n="btn_clear_db">🗑️ Vaciar Base de Datos Local</button>
             </div>
             <div id="db-action-status" class="status-alert mt-3" style="display:none;"></div>
           </div>
         </div>
       </section>
 
+      <!-- TAB 7: EXPORT -->
       <section id="tab-export" class="tab-pane">
         <div class="card">
           <div class="card-header">
-            <h3>Copia de Seguridad y Exportaci?n Offline</h3>
+            <h3 data-i18n="export_title">Copia de Seguridad y Exportación Offline</h3>
           </div>
           <div class="export-content">
-            <p>Descarga toda tu base de datos hist?rica en formato abierto JSON para salvaguardar tu informaci?n de forma soberana o transferirla a otra instancia de LaVera.</p>
+            <p data-i18n="export_desc">Descarga toda tu base de datos histórica en formato abierto JSON para salvaguardar tu información de forma soberana o transferirla a otra instancia de LaVera.</p>
             <div class="export-actions">
-              <a href="/api/export" download="lavera_backup.json" class="btn btn-success">?? Descargar Copia Completa (JSON)</a>
+              <a href="/api/export" download="lavera_backup.json" class="btn btn-success" data-i18n="btn_download_json">💾 Descargar Copia Completa (JSON)</a>
             </div>
           </div>
         </div>
@@ -382,6 +390,7 @@ Content-Type: application/json
 
   <!-- Local Offline Scripts (Zero External CDN Dependencies) -->
   <script src="chart-mini.js"></script>
+  <script src="i18n.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

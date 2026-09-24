@@ -15,6 +15,7 @@ import sys
 import urllib.parse
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
+from typing import Any, Dict, List, Optional
 
 if sys.platform.startswith("win"):
     try:
@@ -59,18 +60,47 @@ storage = OfflineStorage(db_path=DB_PATH)
 
 
 def parse_multipart_payload(body: bytes, content_type: str) -> dict:
-    """Parses multipart/form-data using standard library email module."""
-    raw = b"Content-Type: " + content_type.encode("utf-8") + b"\r\n\r\n" + body
-    msg = email.message_from_bytes(raw)
+    """Parses multipart/form-data using standard library email module with robust boundary fallback."""
     fields = {}
-    for part in msg.walk():
-        cd = part.get("Content-Disposition", "")
-        if "form-data" in cd:
-            match = re.search(r'name="([^"]+)"', cd)
-            if match:
-                name = match.group(1)
-                payload = part.get_payload(decode=True)
-                fields[name] = payload
+    try:
+        raw = b"MIME-Version: 1.0\r\nContent-Type: " + content_type.encode("utf-8") + b"\r\n\r\n" + body
+        msg = email.message_from_bytes(raw)
+        for part in msg.walk():
+            cd = part.get("Content-Disposition", "")
+            if "form-data" in cd:
+                match = re.search(r'name=["\']?([^";\r\n\'"]+)["\']?', cd)
+                if match:
+                    name = match.group(1)
+                    payload = part.get_payload(decode=True)
+                    if payload is None:
+                        payload = part.get_payload()
+                        if isinstance(payload, str):
+                            payload = payload.encode("utf-8")
+                    if payload is not None:
+                        fields[name] = payload
+    except Exception:
+        pass
+
+    # Direct boundary fallback if email parser missed fields or file payload
+    if ("file" not in fields or not fields["file"]) and "boundary=" in content_type:
+        try:
+            boundary_str = content_type.split("boundary=")[-1].split(";")[0].strip().strip('"').strip("'")
+            boundary_bytes = ("--" + boundary_str).encode("utf-8")
+            parts = body.split(boundary_bytes)
+            for part in parts:
+                if b"Content-Disposition:" in part:
+                    headers_and_body = part.split(b"\r\n\r\n", 1)
+                    if len(headers_and_body) == 2:
+                        header_text = headers_and_body[0].decode("utf-8", errors="replace")
+                        part_body = headers_and_body[1].rstrip(b"\r\n--").rstrip(b"\r\n")
+                        match = re.search(r'name=["\']?([^";\r\n\'"]+)["\']?', header_text)
+                        if match:
+                            name = match.group(1)
+                            if name not in fields or not fields[name]:
+                                fields[name] = part_body
+        except Exception:
+            pass
+
     return fields
 
 

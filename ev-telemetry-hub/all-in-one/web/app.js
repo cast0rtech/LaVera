@@ -1,9 +1,10 @@
 /**
  * LaVera Hub Offline Dashboard Engine
- * Handles REST API communication, chart rendering, data import, and online cloud sync.
+ * Handles REST API communication, chart rendering, data import, multi-language i18n, and online cloud sync.
  */
 
 document.addEventListener("DOMContentLoaded", () => {
+  initLangSelect();
   initTabs();
   initImporter();
   initOnlineSync();
@@ -13,6 +14,26 @@ document.addEventListener("DOMContentLoaded", () => {
   // Auto-refresh stats every 30 seconds
   setInterval(loadStats, 30000);
 });
+
+// Initialize Language Selector
+function initLangSelect() {
+  const select = document.getElementById("lang-select");
+  if (select && window.i18n) {
+    select.value = window.i18n.getLang();
+  }
+  if (window.i18n) {
+    window.i18n.updateDOMTranslations();
+  }
+
+  // Hook into language changes to update dynamic JS strings
+  window.onLangChange = () => {
+    loadAllData();
+    const activeTab = document.querySelector(".tab-btn.active")?.getAttribute("data-tab");
+    if (activeTab === "drives") loadDrives();
+    if (activeTab === "charges") loadCharges();
+    if (activeTab === "battery") loadBattery();
+  };
+}
 
 // Global tab switcher
 function switchTab(targetTab) {
@@ -66,6 +87,8 @@ async function loadStats() {
     if (!res.ok) return;
     const data = await res.json();
 
+    const t = window.i18n ? window.i18n.t : (k => k);
+
     // Check empty state
     const drivesCount = (data.drives && data.drives.total_count) || 0;
     const chargesCount = (data.charges && data.charges.total_count) || 0;
@@ -77,20 +100,20 @@ async function loadStats() {
     // KPI Cards
     if (data.drives) {
       document.getElementById("kpi-distance").innerHTML = `${data.drives.total_distance_km.toLocaleString()} <span class="unit">km</span>`;
-      document.getElementById("kpi-odometer").innerText = `Odómetro: ${data.drives.latest_odometer_km.toLocaleString()} km (${data.drives.total_count} viajes)`;
+      document.getElementById("kpi-odometer").innerText = `${t("kpi_odometer")} ${data.drives.latest_odometer_km.toLocaleString()} km (${data.drives.total_count} ${t("drives_shown")})`;
       document.getElementById("kpi-efficiency").innerHTML = `${Math.round(data.drives.avg_efficiency_wh_km)} <span class="unit">Wh/km</span>`;
-      document.getElementById("kpi-energy").innerText = `Consumo Total: ${data.drives.total_energy_kwh.toLocaleString()} kWh`;
+      document.getElementById("kpi-energy").innerText = `${t("kpi_consumption")} ${data.drives.total_energy_kwh.toLocaleString()} kWh`;
     }
 
     if (data.charges) {
       document.getElementById("kpi-charged").innerHTML = `${data.charges.total_charged_kwh.toLocaleString()} <span class="unit">kWh</span>`;
-      document.getElementById("kpi-charges-count").innerText = `${data.charges.total_count} sesiones ($${data.charges.total_cost})`;
+      document.getElementById("kpi-charges-count").innerText = `${data.charges.total_count} ${t("kpi_sessions")} ($${data.charges.total_cost})`;
     }
 
     if (data.battery) {
       const soh = (100 - (data.battery.degradation_pct || 0)).toFixed(1);
       document.getElementById("kpi-health").innerHTML = `${soh} <span class="unit">%</span>`;
-      document.getElementById("kpi-degradation").innerText = `Degradación: ${data.battery.degradation_pct}% (${data.battery.capacity_kwh} kWh)`;
+      document.getElementById("kpi-degradation").innerText = `${t("kpi_degradation")} ${data.battery.degradation_pct}% (${data.battery.capacity_kwh} kWh)`;
     }
 
     // Gauge & Live Telemetry
@@ -105,10 +128,10 @@ async function loadStats() {
     if (badge) {
       if (data.live && data.live.soc !== null) {
         badge.className = "badge success";
-        badge.innerText = "En Línea";
+        badge.innerText = t("badge_online");
       } else {
         badge.className = "badge";
-        badge.innerText = "Standby";
+        badge.innerText = t("badge_standby");
       }
     }
 
@@ -123,12 +146,13 @@ async function loadDrives() {
     if (!res.ok) return;
     const drives = await res.json();
 
+    const t = window.i18n ? window.i18n.t : (k => k);
     const tbody = document.querySelector("#table-drives tbody");
     const countBadge = document.getElementById("drives-count-badge");
-    if (countBadge) countBadge.innerText = `${drives.length} viajes mostrados`;
+    if (countBadge) countBadge.innerText = `${drives.length} ${t("drives_shown")}`;
 
     if (drives.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="text-center">No hay registros de conducción. Importa datos o conecta la API de Tessie.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center">${t("drives_empty")}</td></tr>`;
       return;
     }
 
@@ -160,18 +184,19 @@ async function loadCharges() {
     if (!res.ok) return;
     const charges = await res.json();
 
+    const t = window.i18n ? window.i18n.t : (k => k);
     const tbody = document.querySelector("#table-charges tbody");
     const countBadge = document.getElementById("charges-count-badge");
-    if (countBadge) countBadge.innerText = `${charges.length} cargas mostradas`;
+    if (countBadge) countBadge.innerText = `${charges.length} ${t("charges_shown")}`;
 
     if (charges.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="text-center">No hay sesiones de carga registradas.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center">${t("charges_empty")}</td></tr>`;
       return;
     }
 
     tbody.innerHTML = charges.map(c => {
       const socChange = `${c.start_soc}% → ${c.end_soc}%`;
-      const isFast = c.is_fast_charge ? '<span class="badge vehicle-badge">RÁPIDA / SC</span>' : '<span class="badge">AC LENTA</span>';
+      const isFast = c.is_fast_charge ? `<span class="badge vehicle-badge">${t("fast_charge")}</span>` : `<span class="badge">${t("slow_charge")}</span>`;
       return `
         <tr>
           <td>${formatDate(c.started_at)}</td>
@@ -180,7 +205,7 @@ async function loadCharges() {
           <td>+${c.range_added_km} km</td>
           <td>${c.peak_kw ? c.peak_kw + " kW" : "--"}</td>
           <td>${socChange}</td>
-          <td>${c.cost ? "$" + c.cost.toFixed(2) : "Gratis / --"}</td>
+          <td>${c.cost ? "$" + c.cost.toFixed(2) : t("free_cost")}</td>
           <td>${isFast}</td>
         </tr>
       `;
@@ -196,9 +221,10 @@ async function loadBattery() {
     if (!res.ok) return;
     const history = await res.json();
 
+    const t = window.i18n ? window.i18n.t : (k => k);
     const tbody = document.querySelector("#table-battery tbody");
     if (history.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-center">Sin métricas de batería cargadas.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center">${t("battery_empty")}</td></tr>`;
       ChartMini.renderLineChart("chart-degradation", [], [], { unit: "kWh" });
       return;
     }
@@ -277,7 +303,7 @@ function initOnlineSync() {
         tokenInput.placeholder = `Token guardado (${cfg.masked_token})`;
         if (connBadge) {
           connBadge.className = "badge success";
-          connBadge.innerText = "Configurado";
+          connBadge.innerText = window.i18n ? window.i18n.t("badge_configured") : "Configurado";
         }
       }
     })
@@ -302,7 +328,7 @@ function initOnlineSync() {
           statusAlert.innerText = `✅ ¡Conexión exitosa! Se han detectado ${vehicles.length} vehículo(s) en tu cuenta.`;
           if (connBadge) {
             connBadge.className = "badge success";
-            connBadge.innerText = "Conectado";
+            connBadge.innerText = window.i18n ? window.i18n.t("badge_connected") : "Conectado";
           }
 
           if (vinSelect) {
@@ -345,10 +371,10 @@ function initOnlineSync() {
         const res = await fetch("/api/sync/tessie", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: json.stringify ? JSON.stringify({
+          body: JSON.stringify({
             token, vin, sync_drives: syncDrives, sync_charges: syncCharges,
             sync_battery: syncBattery, save_token: saveToken
-          }) : ""
+          })
         });
         const result = await res.json();
 
@@ -470,8 +496,13 @@ function initImporter() {
     }
 
     if (errors.length === 0) {
-      statusAlert.className = "status-alert success";
-      statusAlert.innerText = `🎉 ¡Éxito! Se han importado correctamente ${totalImported} registros históricos.`;
+      if (totalImported > 0) {
+        statusAlert.className = "status-alert success";
+        statusAlert.innerText = `🎉 ¡Éxito! Se han importado correctamente ${totalImported} registros históricos.`;
+      } else {
+        statusAlert.className = "status-alert warning";
+        statusAlert.innerText = `⚠️ No se encontraron nuevos registros en el archivo subido (0 registros procesados). Asegúrate de subir una exportación de Tessie (.json o .csv) o TeslaFi (.csv).`;
+      }
       loadAllData();
     } else {
       statusAlert.className = "status-alert error";
@@ -484,8 +515,13 @@ function initImporter() {
 function formatDate(isoStr) {
   if (!isoStr) return "--";
   try {
+    const langMap = {
+      es: "es-ES", en: "en-US", de: "de-DE", fr: "fr-FR", it: "it-IT", "zh-tw": "zh-TW"
+    };
+    const currentLang = window.i18n ? window.i18n.getLang() : "es";
+    const locale = langMap[currentLang] || "es-ES";
     const d = new Date(isoStr);
-    return d.toLocaleDateString("es-ES", {
+    return d.toLocaleDateString(locale, {
       year: "numeric", month: "short", day: "numeric",
       hour: "2-digit", minute: "2-digit"
     });

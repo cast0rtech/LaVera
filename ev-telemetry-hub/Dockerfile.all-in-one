@@ -9,7 +9,7 @@ FROM python:3.11-slim
 # Prevent python from buffering stdout/stderr and bytecode generation
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PORT=8080 \
+    PORT=8088 \
     LAVERA_DB_PATH=/app/data/lavera.db
 
 WORKDIR /app
@@ -22,11 +22,11 @@ COPY importer/ /app/importer/
 COPY all-in-one/ /app/all-in-one/
 
 # Expose LaVera Hub Web UI and REST API
-EXPOSE 8080
+EXPOSE 8088 8080
 
 # Native Python healthcheck (Zero curl/external dependencies needed)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=3)" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8088/api/health', timeout=3)" || exit 1
 
 VOLUME ["/app/data"]
 

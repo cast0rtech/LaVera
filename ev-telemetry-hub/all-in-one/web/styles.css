@@ -74,11 +74,42 @@ body {
   gap: 14px;
 }
 
+.brand-logo-img {
+  width: 46px;
+  height: 46px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 10px rgba(0, 230, 118, 0.45));
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+.brand-logo-img:hover {
+  transform: scale(1.1) rotate(4deg);
+  filter: drop-shadow(0 0 14px rgba(0, 230, 118, 0.7));
+}
+
 .brand-icon {
   font-size: 2rem;
   background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+.lang-select {
+  background: rgba(18, 24, 38, 0.9);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.lang-select:hover, .lang-select:focus {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 12px rgba(0, 210, 255, 0.3);
 }
 
 .brand h1 {

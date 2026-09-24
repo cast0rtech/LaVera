@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title LaVera EV Telemetry Hub (Offline & Online Sync)
+title LaVera EV Telemetry Hub (Offline ^& Online Sync)
 color 0b
 
 echo ========================================================
@@ -8,7 +8,11 @@ echo        Iniciando LaVera EV Telemetry Hub Server
 echo ========================================================
 echo.
 
-cd /d "%~dp0ev-telemetry-hub"
+if exist "%~dp0all-in-one\app.py" (
+    cd /d "%~dp0"
+) else if exist "%~dp0ev-telemetry-hub\all-in-one\app.py" (
+    cd /d "%~dp0ev-telemetry-hub"
+)
 
 where python >nul 2>nul
 if %errorlevel% neq 0 (

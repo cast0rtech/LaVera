@@ -1,0 +1,41 @@
+# ==============================================================================
+# Custom Raspberry Pi Embedded Linux OS Builder Container
+# ==============================================================================
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ARCH=arm64
+ENV CROSS_COMPILE=aarch64-linux-gnu-
+
+# Install essential build dependencies for Linux kernel & BusyBox
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    gcc-aarch64-linux-gnu \
+    g++-aarch64-linux-gnu \
+    bison \
+    flex \
+    libncurses5-dev \
+    libssl-dev \
+    bc \
+    kmod \
+    cpio \
+    rsync \
+    git \
+    wget \
+    curl \
+    python3 \
+    device-tree-compiler \
+    parted \
+    dosfstools \
+    e2fsprogs \
+    udev \
+    qemu-user-static \
+    xz-utils \
+    pixz \
+    sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+VOLUME ["/build/output"]
+
+CMD ["/bin/bash"]

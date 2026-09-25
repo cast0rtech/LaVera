@@ -1,0 +1,23 @@
+#!/bin/sh
+# ==============================================================================
+# /etc/init.d/rcS - Primary Boot Init Script for Embedded Linux
+# ==============================================================================
+
+echo "=========================================================="
+echo "  🚀 Booting Custom Embedded Linux for Raspberry Pi"
+echo "=========================================================="
+
+# Mount essential pseudo-filesystems
+mount -a
+
+# Populate dynamic device nodes
+echo "[*] Initializing devtmpfs and mdev..."
+mdev -s
+
+# Set up loopback network interface
+ifconfig lo 127.0.0.1 up
+
+# Set hostname
+hostname rpi-custom-os
+
+echo "[+] System initialized successfully. Ready for console."

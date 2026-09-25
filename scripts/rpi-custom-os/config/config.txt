@@ -1,0 +1,25 @@
+# ==============================================================================
+# Custom Embedded Linux - Raspberry Pi Hardware Configuration
+# ==============================================================================
+
+# Enable 64-bit Kernel Mode
+arm_64bit=1
+
+# Kernel filename
+kernel=kernel8.img
+
+# Video and Display
+gpu_mem=64
+hdmi_force_hotplug=1
+dtoverlay=vc4-kms-v3d
+
+# Serial Console / UART
+enable_uart=1
+
+# Audio & Hardware Buses
+dtparam=audio=on
+dtparam=i2c_arm=on
+dtparam=spi=on
+
+# Auto load device tree overlays
+dtoverlay=disable-bt

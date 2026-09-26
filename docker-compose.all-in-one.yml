@@ -1,4 +1,7 @@
-version: '3.8'
+# ==============================================================================
+# LaVera Hub - Standalone Lightweight Appliance
+# Ideal for Raspberry Pi 3/4/5 Zero-Cloud Local Deployments
+# ==============================================================================
 
 services:
   lavera-hub:
@@ -12,13 +15,13 @@ services:
       - "8088:8088"
       - "8080:8088"
     environment:
-      - TZ=Europe/Zurich
+      - TZ=Europe/Madrid
       - PORT=8088
       - LAVERA_DB_PATH=/app/data/lavera.db
-      - INFLUX_URL=${INFLUX_URL:-}
-      - INFLUX_TOKEN=${INFLUX_TOKEN:-}
-      - INFLUX_ORG=${INFLUX_ORG:-lavera}
-      - INFLUX_BUCKET=${INFLUX_BUCKET:-telemetry}
+      - INFLUXDB_URL=${INFLUXDB_URL:-}
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-}
+      - INFLUXDB_ORG=${INFLUXDB_ORG:-lavera}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET:-ev_telemetry}
     volumes:
       - ./ev-telemetry-hub/data:/app/data
     healthcheck:

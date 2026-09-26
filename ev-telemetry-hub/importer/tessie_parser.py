@@ -206,6 +206,24 @@ def parse_tessie_drives(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[D
                 item.get("end_city") or item.get("location_end") or item.get("address_end") or ""
             ).strip()
 
+            # GPS Coordinates
+            start_lat = safe_float(
+                item.get("starting_latitude") or item.get("start_latitude") or item.get("start_lat") or
+                item.get("starting_lat") or item.get("latitude")
+            )
+            start_lon = safe_float(
+                item.get("starting_longitude") or item.get("start_longitude") or item.get("start_lon") or
+                item.get("start_lng") or item.get("starting_lng") or item.get("longitude")
+            )
+            end_lat = safe_float(
+                item.get("ending_latitude") or item.get("end_latitude") or item.get("end_lat") or
+                item.get("ending_lat")
+            )
+            end_lon = safe_float(
+                item.get("ending_longitude") or item.get("end_longitude") or item.get("end_lon") or
+                item.get("end_lng") or item.get("ending_lng")
+            )
+
             records.append({
                 "provider": "tessie",
                 "vin": vin,
@@ -227,6 +245,11 @@ def parse_tessie_drives(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[D
                 "autopilot_km": ap_dist_km,
                 "autopilot_duration_s": ap_dur_s,
                 "autopilot_pct": ap_pct,
+                "start_latitude": start_lat if (start_lat != 0.0 or start_lon != 0.0) else None,
+                "start_longitude": start_lon if (start_lat != 0.0 or start_lon != 0.0) else None,
+                "end_latitude": end_lat if (end_lat != 0.0 or end_lon != 0.0) else None,
+                "end_longitude": end_lon if (end_lat != 0.0 or end_lon != 0.0) else None,
+                "raw_json": json.dumps(item),
             })
         return records
 
@@ -317,6 +340,27 @@ def parse_tessie_drives(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[D
         start_odo_km = raw_start_odo if is_km else miles_to_km(raw_start_odo)
         end_odo_km = raw_end_odo if is_km else miles_to_km(raw_end_odo)
 
+        # GPS Coordinates
+        start_lat = safe_float(
+            row_map.get("startinglatitude") or row_map.get("startlatitude") or row_map.get("startlat") or
+            row_map.get("startinglat") or row_map.get("latitude") or row_map.get("latitudinicio") or
+            row_map.get("latituddeinicio")
+        )
+        start_lon = safe_float(
+            row_map.get("startinglongitude") or row_map.get("startlongitude") or row_map.get("startlon") or
+            row_map.get("startlng") or row_map.get("startinglng") or row_map.get("longitude") or
+            row_map.get("longitudinicio") or row_map.get("longituddeinicio")
+        )
+        end_lat = safe_float(
+            row_map.get("endinglatitude") or row_map.get("endlatitude") or row_map.get("endlat") or
+            row_map.get("endinglat") or row_map.get("latitudfin") or row_map.get("latitudfinal")
+        )
+        end_lon = safe_float(
+            row_map.get("endinglongitude") or row_map.get("endlongitude") or row_map.get("endlon") or
+            row_map.get("endlng") or row_map.get("endinglng") or row_map.get("longitudfin") or
+            row_map.get("longitudfinal")
+        )
+
         records.append({
             "provider": "tessie",
             "vin": vin,
@@ -349,6 +393,11 @@ def parse_tessie_drives(data_or_text: Any, vin: str = "TESLA_DEFAULT") -> List[D
             "max_speed_kmh": round(
                 safe_float(row_map.get("maxspeed") or row_map.get("speedmax") or row_map.get("velocidadmaxima") or row_map.get("velocidadmax")) * (1.0 if is_km else 1.60934), 1
             ),
+            "start_latitude": start_lat if (start_lat != 0.0 or start_lon != 0.0) else None,
+            "start_longitude": start_lon if (start_lat != 0.0 or start_lon != 0.0) else None,
+            "end_latitude": end_lat if (end_lat != 0.0 or end_lon != 0.0) else None,
+            "end_longitude": end_lon if (end_lat != 0.0 or end_lon != 0.0) else None,
+            "raw_json": json.dumps(row),
         })
 
     return records

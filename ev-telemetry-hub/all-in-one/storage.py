@@ -40,6 +40,18 @@ class OfflineStorage:
                 cur.execute("ALTER TABLE live_telemetry ADD COLUMN odometer_km REAL")
             if "charging_state" not in cols:
                 cur.execute("ALTER TABLE live_telemetry ADD COLUMN charging_state TEXT")
+
+            # Check for drives GPS coordinate columns
+            cur.execute("PRAGMA table_info(drives)")
+            drv_cols = [r["name"] for r in cur.fetchall()]
+            if "start_latitude" not in drv_cols:
+                cur.execute("ALTER TABLE drives ADD COLUMN start_latitude REAL")
+            if "start_longitude" not in drv_cols:
+                cur.execute("ALTER TABLE drives ADD COLUMN start_longitude REAL")
+            if "end_latitude" not in drv_cols:
+                cur.execute("ALTER TABLE drives ADD COLUMN end_latitude REAL")
+            if "end_longitude" not in drv_cols:
+                cur.execute("ALTER TABLE drives ADD COLUMN end_longitude REAL")
             conn.commit()
         finally:
             conn.close()
@@ -230,7 +242,8 @@ class OfflineStorage:
                 SELECT id, provider, vin, started_at, ended_at, duration_s, distance_km,
                        energy_kwh, efficiency_wh_km, start_soc, end_soc, start_location,
                        end_location, start_odometer_km, end_odometer_km,
-                       autopilot_km, autopilot_pct, raw_json
+                       autopilot_km, autopilot_pct, start_latitude, start_longitude,
+                       end_latitude, end_longitude, raw_json
                 FROM drives {where_clause}
                 ORDER BY started_at DESC
             """
@@ -268,11 +281,33 @@ class OfflineStorage:
                 SELECT id, provider, vin, started_at, ended_at, duration_s, distance_km,
                        energy_kwh, efficiency_wh_km, start_soc, end_soc, start_location,
                        end_location, start_odometer_km, end_odometer_km,
-                       autopilot_km, autopilot_pct, raw_json
+                       autopilot_km, autopilot_pct, start_latitude, start_longitude,
+                       end_latitude, end_longitude, raw_json
                 FROM drives WHERE id = ?
             """, (drive_id,))
             row = cur.fetchone()
             return dict(row) if row else None
+        finally:
+            conn.close()
+
+    def get_drive_trackpoints(self, vin: str, started_at: str, ended_at: str) -> List[Dict[str, Any]]:
+        """Queries high-resolution GPS trackpoints from live_telemetry for a drive session."""
+        if not vin or not started_at:
+            return []
+        conn = self._get_conn()
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT timestamp, latitude, longitude, speed_kmh, power_kw, battery_temp_c, soc, odometer_km
+                FROM live_telemetry
+                WHERE vin = ? AND timestamp >= ? AND timestamp <= ?
+                  AND latitude IS NOT NULL AND longitude IS NOT NULL
+                  AND (latitude != 0.0 OR longitude != 0.0)
+                ORDER BY timestamp ASC
+            """, (vin, started_at, ended_at or started_at))
+            return [dict(r) for r in cur.fetchall()]
+        except Exception:
+            return []
         finally:
             conn.close()
 
@@ -524,11 +559,56 @@ class OfflineStorage:
         self.clear_all_data()
 
         demo_drives = [
-            {"provider": "demo", "vin": vin, "started_at": "2026-06-10 08:30:00", "ended_at": "2026-06-10 09:25:00", "duration_s": 3300, "distance_km": 92.4, "energy_kwh": 14.8, "efficiency_wh_km": 160.2, "start_soc": 88.0, "end_soc": 68.0, "start_temp_c": 21.0, "end_temp_c": 24.0, "start_location": "Madrid Norte", "end_location": "Segovia Centro", "start_odometer_km": 32100.0, "end_odometer_km": 32192.4, "max_speed_kmh": 125.0},
-            {"provider": "demo", "vin": vin, "started_at": "2026-06-12 17:15:00", "ended_at": "2026-06-12 18:10:00", "duration_s": 3300, "distance_km": 91.8, "energy_kwh": 13.5, "efficiency_wh_km": 147.1, "start_soc": 80.0, "end_soc": 62.0, "start_temp_c": 26.0, "end_temp_c": 28.0, "start_location": "Segovia", "end_location": "Madrid", "start_odometer_km": 32250.0, "end_odometer_km": 32341.8, "max_speed_kmh": 122.0},
-            {"provider": "demo", "vin": vin, "started_at": "2026-06-15 10:00:00", "ended_at": "2026-06-15 10:50:00", "duration_s": 3000, "distance_km": 74.2, "energy_kwh": 11.6, "efficiency_wh_km": 156.3, "start_soc": 75.0, "end_soc": 59.0, "start_temp_c": 23.0, "end_temp_c": 25.0, "start_location": "Madrid", "end_location": "Toledo", "start_odometer_km": 32400.0, "end_odometer_km": 32474.2, "max_speed_kmh": 120.0},
-            {"provider": "demo", "vin": vin, "started_at": "2026-06-18 08:15:00", "ended_at": "2026-06-18 08:45:00", "duration_s": 1800, "distance_km": 24.5, "energy_kwh": 3.7, "efficiency_wh_km": 151.0, "start_soc": 70.0, "end_soc": 65.0, "start_temp_c": 20.0, "end_temp_c": 21.0, "start_location": "Casa", "end_location": "Oficina", "start_odometer_km": 32510.0, "end_odometer_km": 32534.5, "max_speed_kmh": 95.0},
-            {"provider": "demo", "vin": vin, "started_at": "2026-06-20 09:00:00", "ended_at": "2026-06-20 10:15:00", "duration_s": 4500, "distance_km": 115.0, "energy_kwh": 19.2, "efficiency_wh_km": 167.0, "start_soc": 95.0, "end_soc": 69.0, "start_temp_c": 19.0, "end_temp_c": 22.0, "start_location": "Madrid", "end_location": "Ávila Murallas", "start_odometer_km": 32600.0, "end_odometer_km": 32715.0, "max_speed_kmh": 128.0},
+            {
+                "provider": "demo", "vin": vin, "started_at": "2026-06-10 08:30:00", "ended_at": "2026-06-10 09:25:00",
+                "duration_s": 3300, "distance_km": 92.4, "energy_kwh": 14.8, "efficiency_wh_km": 160.2,
+                "start_soc": 88.0, "end_soc": 68.0, "start_temp_c": 21.0, "end_temp_c": 24.0,
+                "start_location": "Madrid Norte (Chamartín)", "end_location": "Segovia Centro (Acueducto)",
+                "start_latitude": 40.4721, "start_longitude": -3.6826,
+                "end_latitude": 40.9481, "end_longitude": -4.1184,
+                "start_odometer_km": 32100.0, "end_odometer_km": 32192.4, "max_speed_kmh": 125.0,
+                "autopilot_km": 68.5, "autopilot_pct": 74.1,
+            },
+            {
+                "provider": "demo", "vin": vin, "started_at": "2026-06-12 17:15:00", "ended_at": "2026-06-12 18:10:00",
+                "duration_s": 3300, "distance_km": 91.8, "energy_kwh": 13.5, "efficiency_wh_km": 147.1,
+                "start_soc": 80.0, "end_soc": 62.0, "start_temp_c": 26.0, "end_temp_c": 28.0,
+                "start_location": "Segovia Centro", "end_location": "Madrid (Moncloa)",
+                "start_latitude": 40.9481, "start_longitude": -4.1184,
+                "end_latitude": 40.4354, "end_longitude": -3.7196,
+                "start_odometer_km": 32250.0, "end_odometer_km": 32341.8, "max_speed_kmh": 122.0,
+                "autopilot_km": 72.0, "autopilot_pct": 78.4,
+            },
+            {
+                "provider": "demo", "vin": vin, "started_at": "2026-06-15 10:00:00", "ended_at": "2026-06-15 10:50:00",
+                "duration_s": 3000, "distance_km": 74.2, "energy_kwh": 11.6, "efficiency_wh_km": 156.3,
+                "start_soc": 75.0, "end_soc": 59.0, "start_temp_c": 23.0, "end_temp_c": 25.0,
+                "start_location": "Madrid (Atocha)", "end_location": "Toledo (Plaza Zocodover)",
+                "start_latitude": 40.4066, "start_longitude": -3.6903,
+                "end_latitude": 39.8597, "end_longitude": -4.0208,
+                "start_odometer_km": 32400.0, "end_odometer_km": 32474.2, "max_speed_kmh": 120.0,
+                "autopilot_km": 50.0, "autopilot_pct": 67.4,
+            },
+            {
+                "provider": "demo", "vin": vin, "started_at": "2026-06-18 08:15:00", "ended_at": "2026-06-18 08:45:00",
+                "duration_s": 1800, "distance_km": 24.5, "energy_kwh": 3.7, "efficiency_wh_km": 151.0,
+                "start_soc": 70.0, "end_soc": 65.0, "start_temp_c": 20.0, "end_temp_c": 21.0,
+                "start_location": "Casa (Majadahonda)", "end_location": "Oficina (Castellana 200)",
+                "start_latitude": 40.4735, "start_longitude": -3.8722,
+                "end_latitude": 40.4632, "end_longitude": -3.6898,
+                "start_odometer_km": 32510.0, "end_odometer_km": 32534.5, "max_speed_kmh": 95.0,
+                "autopilot_km": 12.0, "autopilot_pct": 49.0,
+            },
+            {
+                "provider": "demo", "vin": vin, "started_at": "2026-06-20 09:00:00", "ended_at": "2026-06-20 10:15:00",
+                "duration_s": 4500, "distance_km": 115.0, "energy_kwh": 19.2, "efficiency_wh_km": 167.0,
+                "start_soc": 95.0, "end_soc": 69.0, "start_temp_c": 19.0, "end_temp_c": 22.0,
+                "start_location": "Madrid (Moncloa)", "end_location": "Ávila (Murallas)",
+                "start_latitude": 40.4354, "start_longitude": -3.7196,
+                "end_latitude": 40.6565, "end_longitude": -4.7016,
+                "start_odometer_km": 32600.0, "end_odometer_km": 32715.0, "max_speed_kmh": 128.0,
+                "autopilot_km": 88.0, "autopilot_pct": 76.5,
+            },
         ]
 
         demo_charges = [
@@ -551,6 +631,30 @@ class OfflineStorage:
         n_charges = self.writer.write_charges(demo_charges)
         n_battery = self.writer.write_battery_health(demo_battery)
 
+        # Seed realistic live telemetry trackpoints for Drive 4 (Majadahonda -> Castellana)
+        demo_points = [
+            ("2026-06-18 08:15:00", 40.4735, -3.8722, 20.0, 70.0, 32510.0),
+            ("2026-06-18 08:20:00", 40.4680, -3.8350, 78.0, 69.2, 32515.2),
+            ("2026-06-18 08:25:00", 40.4590, -3.7850, 92.0, 68.1, 32521.8),
+            ("2026-06-18 08:32:00", 40.4485, -3.7250, 85.0, 66.9, 32527.5),
+            ("2026-06-18 08:38:00", 40.4550, -3.6980, 52.0, 65.8, 32531.4),
+            ("2026-06-18 08:45:00", 40.4632, -3.6898, 0.0, 65.0, 32534.5),
+        ]
+        for ts, lat, lon, spd, soc_val, odo_val in demo_points:
+            self.insert_live_telemetry({
+                "vin": vin,
+                "timestamp": ts,
+                "soc": soc_val,
+                "speed_kmh": spd,
+                "power_kw": 18.5 if spd > 0 else 0.0,
+                "battery_temp_c": 22.0,
+                "odometer_km": odo_val,
+                "charging_state": "STANDBY",
+                "latitude": lat,
+                "longitude": lon
+            })
+
+        # Latest vehicle status
         self.insert_live_telemetry({
             "vin": vin,
             "timestamp": "2026-06-22 15:30:00",
@@ -560,8 +664,8 @@ class OfflineStorage:
             "battery_temp_c": 24.5,
             "odometer_km": 32750.0,
             "charging_state": "STANDBY",
-            "latitude": 40.4168,
-            "longitude": -3.7038
+            "latitude": 40.4632,
+            "longitude": -3.6898
         })
 
         return {

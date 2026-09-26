@@ -1,15 +1,13 @@
-version: '3.8'
-
 # ==============================================================================
-# LaVera Hub - All-in-One Offline Stack
-# Windows (Docker Desktop), Linux (amd64/arm64) & Raspberry Pi (arm64/armv7)
+# LaVera Hub - Standalone Lightweight Appliance
+# Ideal for Raspberry Pi 3/4/5 Zero-Cloud Local Deployments
 # ==============================================================================
 
 services:
   lavera-hub:
     build:
-      context: .
-      dockerfile: Dockerfile.all-in-one
+      context: ..
+      dockerfile: Dockerfile
     image: lavera-hub:all-in-one
     container_name: lavera_hub
     restart: always
@@ -17,15 +15,15 @@ services:
       - "8088:8088"
       - "8080:8088"
     environment:
-      - TZ=Europe/Zurich
+      - TZ=Europe/Madrid
       - PORT=8088
       - LAVERA_DB_PATH=/app/data/lavera.db
-      - INFLUX_URL=${INFLUX_URL:-}
-      - INFLUX_TOKEN=${INFLUX_TOKEN:-}
-      - INFLUX_ORG=${INFLUX_ORG:-lavera}
-      - INFLUX_BUCKET=${INFLUX_BUCKET:-telemetry}
+      - INFLUXDB_URL=${INFLUXDB_URL:-}
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-}
+      - INFLUXDB_ORG=${INFLUXDB_ORG:-lavera}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET:-ev_telemetry}
     volumes:
-      - ./data:/app/data
+      - ./ev-telemetry-hub/data:/app/data
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8088/api/health', timeout=3)"]
       interval: 30s

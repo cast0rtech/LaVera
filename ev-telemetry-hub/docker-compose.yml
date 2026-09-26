@@ -1,29 +1,40 @@
-version: '3.8'
+# ==============================================================================
+# LaVera Full EV Telemetry Stack - Modern Compose Specification
+# Compatible with Docker Engine 27+ / 28+ & Docker Compose v2
+# Supported: x86_64, ARM64 (Raspberry Pi 4/5), ARMv7 (Raspberry Pi 3)
+# ==============================================================================
 
 services:
-  # 0. Hub Web Offline y API REST
   lavera-hub:
     build:
-      context: .
-      dockerfile: Dockerfile.all-in-one
-    image: lavera-hub:all-in-one
+      context: ..
+      dockerfile: Dockerfile
+    image: lavera-hub:latest
     container_name: lavera_hub
+    restart: always
     ports:
       - "8080:8080"
+      - "8088:8088"
     environment:
-      - TZ=Europe/Zurich
-      - PORT=8080
+      - TZ=Europe/Madrid
+      - PORT=8088
       - LAVERA_DB_PATH=/app/data/lavera.db
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=LaVeraSuperSecretAdminToken2026!
+      - INFLUXDB_ORG=lavera
+      - INFLUXDB_BUCKET=ev_telemetry
       - POSTGRES_HOST=timescaledb
       - POSTGRES_PORT=5432
       - POSTGRES_USER=lavera
       - POSTGRES_PASSWORD=LaVeraSecurePass2026!
       - POSTGRES_DB=lavera_telemetry
     volumes:
-      - ./data:/app/data
-    restart: always
+      - ./ev-telemetry-hub/data:/app/data
+    depends_on:
+      influxdb:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=3)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8088/api/health', timeout=3)"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -31,76 +42,99 @@ services:
     networks:
       - telemetry_net
 
-  # 1. Extractor Multimarca
-  homeassistant:
-    image: lscr.io/linuxserver/homeassistant:latest
-    container_name: telemetry_ha
-    ports:
-      - "8123:8123"
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Zurich
-    volumes:
-      - ./data/homeassistant:/config
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: telemetry_influxdb
     restart: always
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=lavera
+      - DOCKER_INFLUXDB_INIT_PASSWORD=LaVeraSecurePass2026!
+      - DOCKER_INFLUXDB_INIT_ORG=lavera
+      - DOCKER_INFLUXDB_INIT_BUCKET=ev_telemetry
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=LaVeraSuperSecretAdminToken2026!
+      - DOCKER_INFLUXDB_INIT_RETENTION=0
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8086/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - telemetry_net
 
-  # 2. Base de Datos de Series Temporales (TimescaleDB / PostgreSQL 16)
   timescaledb:
     image: timescale/timescaledb:latest-pg16
     container_name: telemetry_timescale
+    restart: always
     ports:
       - "5432:5432"
     environment:
       - POSTGRES_USER=lavera
       - POSTGRES_PASSWORD=LaVeraSecurePass2026!
       - POSTGRES_DB=lavera_telemetry
-      - TZ=Europe/Zurich
+      - TZ=Europe/Madrid
     volumes:
       - timescale_data:/var/lib/postgresql/data
-      - ./sql/init-timescaledb.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./ev-telemetry-hub/sql/init-timescaledb.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U lavera -d lavera_telemetry"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
-    restart: always
     networks:
       - telemetry_net
 
-  # 3. Procesamiento y Logica
   nodered:
     image: nodered/node-red:latest
     container_name: telemetry_nodered
+    restart: always
     ports:
       - "1880:1880"
     environment:
-      - TZ=Europe/Zurich
+      - TZ=Europe/Madrid
     volumes:
-      - ./data/nodered:/data
-    restart: always
+      - ./ev-telemetry-hub/data/nodered:/data
     networks:
       - telemetry_net
 
-  # 4. Dashboard de Visualizacion
   grafana:
     image: grafana/grafana:latest
     container_name: telemetry_grafana
+    restart: always
     ports:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
-      - TZ=Europe/Zurich
+      - TZ=Europe/Madrid
     volumes:
-      - ./data/grafana:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-    restart: always
+      - ./ev-telemetry-hub/data/grafana:/var/lib/grafana
+      - ./ev-telemetry-hub/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
+      influxdb:
+        condition: service_healthy
       timescaledb:
         condition: service_healthy
+    networks:
+      - telemetry_net
+
+  homeassistant:
+    image: lscr.io/linuxserver/homeassistant:latest
+    container_name: telemetry_ha
+    restart: always
+    ports:
+      - "8123:8123"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Madrid
+    volumes:
+      - ./ev-telemetry-hub/data/homeassistant:/config
     networks:
       - telemetry_net
 
@@ -109,4 +143,5 @@ networks:
     driver: bridge
 
 volumes:
+  influxdb_data:
   timescale_data:

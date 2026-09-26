@@ -95,6 +95,20 @@ def parse_teslafi_drives(csv_text_or_io: Any, vin: str = "TESLA_DEFAULT") -> Lis
         start_odo_km = raw_start_odo if is_km_distance else miles_to_km(raw_start_odo)
         end_odo_km = raw_end_odo if is_km_distance else miles_to_km(raw_end_odo)
 
+        # GPS Coordinates
+        start_lat = safe_float(row_map.get("startlatitude") or row_map.get("startlat") or row_map.get("startinglatitude") or row_map.get("latitude"))
+        start_lon = safe_float(row_map.get("startlongitude") or row_map.get("startlon") or row_map.get("startlng") or row_map.get("startinglongitude") or row_map.get("longitude"))
+        end_lat = safe_float(row_map.get("endlatitude") or row_map.get("endlat") or row_map.get("endinglatitude"))
+        end_lon = safe_float(row_map.get("endlongitude") or row_map.get("endlon") or row_map.get("endlng") or row_map.get("endinglongitude"))
+
+        # Autopilot
+        raw_ap_dist = safe_float(row_map.get("autopilotdistance") or row_map.get("autopilotkm") or row_map.get("autopilotmiles"))
+        ap_dist_km = raw_ap_dist if is_km_distance else miles_to_km(raw_ap_dist)
+        ap_pct = safe_float(row_map.get("autopilotpercent") or row_map.get("autopilotpct") or row_map.get("autopilot"))
+        if ap_pct == 0 and distance_km > 0 and ap_dist_km > 0:
+            ap_pct = round((ap_dist_km / distance_km) * 100.0, 1)
+
+        import json as _json
         record = {
             "provider": "teslafi",
             "vin": vin,
@@ -113,6 +127,13 @@ def parse_teslafi_drives(csv_text_or_io: Any, vin: str = "TESLA_DEFAULT") -> Lis
             "start_odometer_km": start_odo_km,
             "end_odometer_km": end_odo_km,
             "max_speed_kmh": round(safe_float(row_map.get("maxspeed")) * (1.0 if is_km_distance else 1.60934), 1),
+            "start_latitude": start_lat if (start_lat != 0.0 or start_lon != 0.0) else None,
+            "start_longitude": start_lon if (start_lat != 0.0 or start_lon != 0.0) else None,
+            "end_latitude": end_lat if (end_lat != 0.0 or end_lon != 0.0) else None,
+            "end_longitude": end_lon if (end_lat != 0.0 or end_lon != 0.0) else None,
+            "autopilot_km": ap_dist_km,
+            "autopilot_pct": ap_pct,
+            "raw_json": _json.dumps(row),
         }
         records.append(record)
 

@@ -19,3 +19,4 @@ __pycache__/
 
 # Build artifacts
 dist-arm/bootfs_overlay/
+dist-pi/

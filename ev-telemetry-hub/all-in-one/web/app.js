@@ -413,13 +413,18 @@ async function loadDrives() {
         ? `<span class="badge vehicle-badge">🤖 ${apPct > 0 ? apPct + '%' : ''} (${apKm} km)</span>`
         : `<span class="badge" style="opacity:0.6;">Manual</span>`;
 
-      // Map link & GPX/KML Exporters
-      const gmapsDir = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(startLoc)}&destination=${encodeURIComponent(endLoc)}`;
+            // Map link & GPX/KML Exporters (Use exact GPS coordinates if available)
+      let gmapsDir;
+      if (d.start_latitude && d.start_longitude && d.end_latitude && d.end_longitude) {
+        gmapsDir = `https://www.google.com/maps/dir/?api=1&origin=${d.start_latitude},${d.start_longitude}&destination=${d.end_latitude},${d.end_longitude}`;
+      } else {
+        gmapsDir = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(startLoc)}&destination=${encodeURIComponent(endLoc)}`;
+      }
       const actionsHtml = `
         <div style="display:flex; gap:4px; align-items:center;">
           <a href="${gmapsDir}" target="_blank" class="map-link-btn" title="Abrir en Google Maps">🗺️ Mapa</a>
-          <a href="/api/drives/export?id=${d.id}&format=gpx" class="btn btn-xs btn-outline export-btn" download>📥 GPX</a>
-          <a href="/api/drives/export?id=${d.id}&format=kml" class="btn btn-xs btn-outline export-btn" download>📥 KML</a>
+          <a href="/api/drives/export?id=${d.id}&format=gpx" class="btn btn-xs btn-outline export-btn" title="Exportar ruta GPX (compatible con Garmin, Strava, OsmAnd)" download>📍 GPX</a>
+          <a href="/api/drives/export?id=${d.id}&format=kml" class="btn btn-xs btn-outline export-btn" title="Exportar ruta KML (compatible con Google Earth)" download>🌐 KML</a>
         </div>
       `;
 

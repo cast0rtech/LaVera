@@ -1,10 +1,10 @@
 # ==============================================================================
 # LaVera Hub - All-in-One Multi-Architecture Dockerfile
-# Supported Architectures: linux/amd64, linux/arm64, linux/arm/v7 (Raspberry Pi)
-# 100% Offline-Capable | Zero apt-get / external network dependency during build
+# Supported Architectures: linux/amd64, linux/arm64 (Raspberry Pi 4/5), linux/arm/v7 (Raspberry Pi 3/Zero 2W)
+# Base: Python 3.12 LTS Slim (Debian Bookworm) - Optimized for ARM & x86_64
 # ==============================================================================
 
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Prevent python from buffering stdout/stderr and bytecode generation
 ENV PYTHONUNBUFFERED=1 \
@@ -14,12 +14,17 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Create persistent data volume directory
-RUN mkdir -p /app/data
+# Install lightweight dependencies required for Tesla ECDSA signing and InfluxDB HTTP
+RUN pip install --no-cache-dir requests cryptography
 
-# Copy application and importer code into /app
+# Create persistent data volume directory
+RUN mkdir -p /app/data /app/scripts
+
+# Copy application, importer, and hybrid gateway code into container
 COPY ev-telemetry-hub/importer/ /app/importer/
+COPY ev-telemetry-hub/gateway/ /app/gateway/
 COPY ev-telemetry-hub/all-in-one/ /app/all-in-one/
+COPY ev-telemetry-hub/scripts/ /app/scripts/
 
 # Expose LaVera Hub Web UI and REST API
 EXPOSE 8088 8080

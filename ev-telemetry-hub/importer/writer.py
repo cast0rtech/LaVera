@@ -96,6 +96,10 @@ class TelemetryWriter:
                     autopilot_km REAL,
                     autopilot_duration_s INTEGER,
                     autopilot_pct REAL,
+                    start_latitude REAL,
+                    start_longitude REAL,
+                    end_latitude REAL,
+                    end_longitude REAL,
                     raw_json TEXT,
                     UNIQUE(vin, started_at)
                 );
@@ -189,14 +193,16 @@ class TelemetryWriter:
             cursor = conn.cursor()
             for d in drives:
                 try:
+                    raw_payload = d.get("raw_json") if isinstance(d.get("raw_json"), str) else json.dumps(d)
                     cursor.execute("""
                         INSERT OR REPLACE INTO drives (
                             provider, vin, started_at, ended_at, duration_s, distance_km,
                             energy_kwh, efficiency_wh_km, start_soc, end_soc, start_temp_c,
                             end_temp_c, start_location, end_location, start_odometer_km,
                             end_odometer_km, max_speed_kmh, autopilot_km, autopilot_duration_s,
-                            autopilot_pct, raw_json
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            autopilot_pct, start_latitude, start_longitude, end_latitude,
+                            end_longitude, raw_json
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         d.get("provider", "unknown"),
                         d.get("vin", "DEFAULT"),
@@ -218,7 +224,11 @@ class TelemetryWriter:
                         d.get("autopilot_km", 0.0),
                         d.get("autopilot_duration_s", 0),
                         d.get("autopilot_pct", 0.0),
-                        json.dumps(d)
+                        d.get("start_latitude"),
+                        d.get("start_longitude"),
+                        d.get("end_latitude"),
+                        d.get("end_longitude"),
+                        raw_payload
                     ))
                     inserted += 1
                 except sqlite3.Error:

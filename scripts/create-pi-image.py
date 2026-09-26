@@ -25,7 +25,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DEFAULT_IMAGE_URL = "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2026-09-15/2026-09-15-raspios-trixie-arm64-lite.img.xz"
+DEFAULT_IMAGE_URL = "https://downloads.raspberrypi.com/raspios_lite_arm64_latest"
 
 
 def sha512_crypt(password: str, salt: str = "laverasalt") -> str:

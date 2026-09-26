@@ -51,12 +51,59 @@ from importer.tessie_parser import (
     parse_tessie_battery_health,
 )
 from storage import OfflineStorage
+from gateway import (
+    HybridTelemetryGateway,
+    TeslaSecurityManager,
+    TeslaFleetProvider,
+    TessieProvider,
+    CircuitBreaker,
+    CanonicalVehicleState,
+)
 
 DB_PATH = os.getenv("LAVERA_DB_PATH", os.path.join(current_dir, "data", "lavera.db"))
 WEB_DIR = os.path.join(current_dir, "web")
 PORT = int(os.getenv("PORT", "8088"))
 
 storage = OfflineStorage(db_path=DB_PATH)
+
+
+def init_gateway(storage_instance) -> HybridTelemetryGateway:
+    """Initializes the Hybrid Telemetry Gateway with persistent configuration."""
+    primary = storage_instance.get_setting("telemetry_primary_provider", "tessie")
+    fallback = storage_instance.get_setting("telemetry_fallback_enabled", "1") == "1"
+
+    tessie_token = storage_instance.get_setting("tessie_token", "")
+    tesla_client_id = storage_instance.get_setting("tesla_client_id", "")
+    tesla_client_secret = storage_instance.get_setting("tesla_client_secret", "")
+    tesla_refresh_token = storage_instance.get_setting("tesla_refresh_token", "")
+    tesla_region = storage_instance.get_setting("tesla_region", "eu")
+    tesla_priv_pem = storage_instance.get_setting("tesla_private_key_pem", None)
+
+    gw = HybridTelemetryGateway(primary_provider_name=primary, fallback_enabled=fallback)
+
+    # Register Tessie Provider
+    tessie_prov = TessieProvider(token=tessie_token)
+    gw.register_provider(tessie_prov)
+
+    # Register Tesla Fleet Provider
+    tesla_sec = TeslaSecurityManager(
+        client_id=tesla_client_id,
+        client_secret=tesla_client_secret,
+        refresh_token=tesla_refresh_token,
+        region=tesla_region,
+        private_key_pem=tesla_priv_pem
+    )
+    fleet_prov = TeslaFleetProvider(security_manager=tesla_sec)
+    gw.register_provider(fleet_prov)
+
+    try:
+        gw.set_primary_provider(primary)
+    except Exception:
+        pass
+
+    return gw
+
+gateway = init_gateway(storage)
 
 
 def parse_multipart_payload(body: bytes, content_type: str) -> dict:
@@ -104,112 +151,333 @@ def parse_multipart_payload(body: bytes, content_type: str) -> dict:
     return fields
 
 
-def generate_drive_gpx(drive: dict) -> str:
-    started_at = drive.get("started_at", "N/A")
+def xml_escape(s) -> str:
+    """Safely escapes text for inclusion in XML/KML/GPX documents."""
+    if s is None:
+        return ""
+    text = str(s)
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&apos;")
+    )
+
+
+def _parse_coord(lat_val, lon_val):
+    """Safely validates and normalizes latitude and longitude."""
+    try:
+        lat = float(lat_val)
+        lon = float(lon_val)
+        if -90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0 and (lat != 0.0 or lon != 0.0):
+            return lat, lon
+    except (TypeError, ValueError):
+        pass
+    return None
+
+
+def _parse_coord_string(s):
+    """Tries to extract (lat, lon) from a coordinate string (e.g. '40.4168, -3.7038')."""
+    if not s:
+        return None
+    st = str(s).strip()
+    for sep in [",", ";", "/"]:
+        if sep in st:
+            parts = st.split(sep)
+            if len(parts) >= 2:
+                c = _parse_coord(parts[0].strip(), parts[1].strip())
+                if c:
+                    return c
+    return None
+
+
+def extract_drive_trackpoints(drive: dict, storage=None):
+    """
+    Extracts all real GPS points and start/destination waypoints for a drive.
+    Returns: (trackpoints, start_waypoint, end_waypoint)
+    Each trackpoint dict contains: lat, lon, time, speed (m/s), ele (m).
+    """
+    pts = []
+    vin = drive.get("vin")
+    started_at = drive.get("started_at")
+    ended_at = drive.get("ended_at") or started_at
+
+    # 1. High fidelity: query recorded GPS points from live_telemetry table
+    if storage and vin and started_at and hasattr(storage, "get_drive_trackpoints"):
+        raw_tp = storage.get_drive_trackpoints(vin, started_at, ended_at)
+        for p in raw_tp:
+            c = _parse_coord(p.get("latitude"), p.get("longitude"))
+            if c:
+                speed_kmh = p.get("speed_kmh")
+                speed_mps = round(float(speed_kmh) / 3.6, 2) if speed_kmh is not None and float(speed_kmh) >= 0 else None
+                pts.append({
+                    "lat": c[0],
+                    "lon": c[1],
+                    "time": p.get("timestamp") or started_at,
+                    "speed": speed_mps,
+                    "ele": None
+                })
+
+    raw_dict = {}
+    raw_data = drive.get("raw_json")
+    if isinstance(raw_data, str) and raw_data.strip():
+        try:
+            raw_dict = json.loads(raw_data)
+        except Exception:
+            raw_dict = {}
+    elif isinstance(raw_data, dict):
+        raw_dict = raw_data
+
+    # 2. Check waypoints or path from raw_json
+    if not pts and raw_dict:
+        for key in ["waypoints", "path", "route", "locations", "coordinates", "coords", "points"]:
+            items = raw_dict.get(key)
+            if isinstance(items, list) and len(items) > 0:
+                for w in items:
+                    if isinstance(w, dict):
+                        lat = w.get("lat") or w.get("latitude") or w.get("latitud")
+                        lon = w.get("lon") or w.get("lng") or w.get("longitude") or w.get("longitud")
+                        c = _parse_coord(lat, lon)
+                        if c:
+                            ts = w.get("timestamp") or w.get("time") or started_at
+                            speed = w.get("speed") or w.get("speed_kmh")
+                            speed_mps = round(float(speed) / 3.6, 2) if speed is not None else None
+                            ele = w.get("ele") or w.get("elevation") or w.get("altitude") or w.get("alt")
+                            pts.append({
+                                "lat": c[0],
+                                "lon": c[1],
+                                "time": ts,
+                                "speed": speed_mps,
+                                "ele": float(ele) if ele is not None else None
+                            })
+                    elif isinstance(w, (list, tuple)) and len(w) >= 2:
+                        try:
+                            v1, v2 = float(w[0]), float(w[1])
+                            if abs(v1) > 90 and abs(v2) <= 90:
+                                lat, lon = v2, v1
+                            else:
+                                lat, lon = v1, v2
+                            c = _parse_coord(lat, lon)
+                            if c:
+                                ele = float(w[2]) if len(w) >= 3 else None
+                                pts.append({"lat": c[0], "lon": c[1], "time": started_at, "speed": None, "ele": ele})
+                        except Exception:
+                            pass
+                if pts:
+                    break
+
+    # 3. Resolve start and end coordinates
+    start_c = (
+        _parse_coord(drive.get("start_latitude"), drive.get("start_longitude")) or
+        _parse_coord(raw_dict.get("starting_latitude"), raw_dict.get("starting_longitude")) or
+        _parse_coord(raw_dict.get("start_latitude"), raw_dict.get("start_longitude")) or
+        _parse_coord(raw_dict.get("start_lat"), raw_dict.get("start_lon") or raw_dict.get("start_lng")) or
+        _parse_coord_string(drive.get("start_location"))
+    )
+
+    end_c = (
+        _parse_coord(drive.get("end_latitude"), drive.get("end_longitude")) or
+        _parse_coord(raw_dict.get("ending_latitude"), raw_dict.get("ending_longitude")) or
+        _parse_coord(raw_dict.get("end_latitude"), raw_dict.get("end_longitude")) or
+        _parse_coord(raw_dict.get("end_lat"), raw_dict.get("end_lon") or raw_dict.get("end_lng")) or
+        _parse_coord_string(drive.get("end_location"))
+    )
+
+    start_loc_name = str(drive.get("start_location") or "Origen").strip()
+    end_loc_name = str(drive.get("end_location") or "Destino").strip()
+
+    start_wpt = None
+    if start_c:
+        start_wpt = {"lat": start_c[0], "lon": start_c[1], "name": start_loc_name, "time": started_at}
+    elif pts:
+        start_wpt = {"lat": pts[0]["lat"], "lon": pts[0]["lon"], "name": start_loc_name, "time": pts[0]["time"]}
+
+    end_wpt = None
+    if end_c:
+        end_wpt = {"lat": end_c[0], "lon": end_c[1], "name": end_loc_name, "time": ended_at}
+    elif pts:
+        end_wpt = {"lat": pts[-1]["lat"], "lon": pts[-1]["lon"], "name": end_loc_name, "time": pts[-1]["time"]}
+
+    # If no high-frequency points exist but start and end coordinates are known, construct segment
+    if not pts:
+        if start_c and end_c:
+            pts.append({"lat": start_c[0], "lon": start_c[1], "time": started_at, "speed": None, "ele": None})
+            pts.append({"lat": end_c[0], "lon": end_c[1], "time": ended_at, "speed": None, "ele": None})
+        elif start_c:
+            pts.append({"lat": start_c[0], "lon": start_c[1], "time": started_at, "speed": None, "ele": None})
+        elif end_c:
+            pts.append({"lat": end_c[0], "lon": end_c[1], "time": ended_at, "speed": None, "ele": None})
+
+    return pts, start_wpt, end_wpt
+
+
+def generate_drive_gpx(drive: dict, storage=None) -> str:
+    """
+    Generates a valid, standards-compliant GPX 1.1 file (XML 1.0) for a drive session.
+    Compatible with Strava, Garmin, Google Earth, OsmAnd, Komoot, and all standard GPS parsers.
+    """
+    started_at = drive.get("started_at", "")
+    ended_at = drive.get("ended_at", started_at)
     start_loc = drive.get("start_location") or "Origen"
     end_loc = drive.get("end_location") or "Destino"
-    dist = drive.get("distance_km", 0)
+    dist = drive.get("distance_km", 0.0)
+    energy = drive.get("energy_kwh", 0.0)
+    efficiency = drive.get("efficiency_wh_km", 0.0)
 
-    pts = []
-    if drive.get("raw_json"):
-        try:
-            raw = json.loads(drive["raw_json"]) if isinstance(drive["raw_json"], str) else drive["raw_json"]
-            if isinstance(raw, dict):
-                if "waypoints" in raw and isinstance(raw["waypoints"], list):
-                    for w in raw["waypoints"]:
-                        lat = w.get("lat") or w.get("latitude")
-                        lon = w.get("lon") or w.get("lng") or w.get("longitude")
-                        ts = w.get("timestamp") or w.get("time") or started_at
-                        if lat and lon:
-                            pts.append((lat, lon, ts))
-                elif "start_latitude" in raw and "end_latitude" in raw:
-                    pts.append((raw["start_latitude"], raw.get("start_longitude"), started_at))
-                    pts.append((raw["end_latitude"], raw.get("end_longitude"), drive.get("ended_at", started_at)))
-        except Exception:
-            pass
+    pts, start_wpt, end_wpt = extract_drive_trackpoints(drive, storage=storage)
 
-    if not pts:
-        def parse_coord_str(s):
-            if s and "," in str(s):
-                parts = str(s).split(",")
-                try:
-                    return float(parts[0]), float(parts[1])
-                except Exception:
-                    return None
-            return None
+    def format_iso_time(ts_str):
+        if not ts_str:
+            return ""
+        s = str(ts_str).strip().replace(" ", "T")
+        if not s.endswith("Z") and "+" not in s:
+            s += "Z"
+        return s
 
-        p1 = parse_coord_str(start_loc)
-        p2 = parse_coord_str(end_loc)
-        if p1:
-            pts.append((p1[0], p1[1], started_at))
-        else:
-            pts.append((40.4168, -3.7038, started_at))
+    started_iso = format_iso_time(started_at)
 
-        if p2:
-            pts.append((p2[0], p2[1], drive.get("ended_at", started_at)))
-        else:
-            pts.append((40.4500, -3.6900, drive.get("ended_at", started_at)))
+    wpts_xml = ""
+    if start_wpt:
+        wpts_xml += f'  <wpt lat="{start_wpt["lat"]:.6f}" lon="{start_wpt["lon"]:.6f}">\n'
+        wpts_xml += f'    <name>{xml_escape(start_wpt["name"])}</name>\n'
+        wpts_xml += f'    <desc>Punto de inicio ({xml_escape(started_at)})</desc>\n'
+        wpts_xml += f'    <time>{format_iso_time(start_wpt.get("time"))}</time>\n'
+        wpts_xml += '  </wpt>\n'
+    if end_wpt and (not start_wpt or (end_wpt["lat"] != start_wpt["lat"] or end_wpt["lon"] != start_wpt["lon"])):
+        wpts_xml += f'  <wpt lat="{end_wpt["lat"]:.6f}" lon="{end_wpt["lon"]:.6f}">\n'
+        wpts_xml += f'    <name>{xml_escape(end_wpt["name"])}</name>\n'
+        wpts_xml += f'    <desc>Punto de destino ({xml_escape(ended_at)})</desc>\n'
+        wpts_xml += f'    <time>{format_iso_time(end_wpt.get("time"))}</time>\n'
+        wpts_xml += '  </wpt>\n'
 
     trkpts_xml = ""
-    for lat, lon, ts in pts:
-        trkpts_xml += f'      <trkpt lat="{lat}" lon="{lon}"><time>{ts}</time></trkpt>\n'
+    for p in pts:
+        p_time = format_iso_time(p.get("time") or started_at)
+        p_extra = ""
+        if p.get("ele") is not None:
+            p_extra += f'<ele>{p["ele"]:.1f}</ele>'
+        if p.get("speed") is not None:
+            p_extra += f'<speed>{p["speed"]:.2f}</speed>'
+        trkpts_xml += f'      <trkpt lat="{p["lat"]:.6f}" lon="{p["lon"]:.6f}"><time>{p_time}</time>{p_extra}</trkpt>\n'
 
-    return f"""<?xml version="1.1" encoding="UTF-8"?>
-<gpx version="1.1" creator="LaVera EV Telemetry Hub" xmlns="http://www.topografix.com/GPX/1/1">
-  <metadata>
-    <name>Trayecto {started_at}: {start_loc} -&gt; {end_loc}</name>
-    <desc>Distancia: {dist} km | Consumo: {drive.get('energy_kwh', 0)} kWh</desc>
-    <time>{started_at}</time>
-  </metadata>
-  <trk>
-    <name>{start_loc} -&gt; {end_loc}</name>
+    if pts:
+        trk_content = f"""  <trk>
+    <name>{xml_escape(start_loc)} -&gt; {xml_escape(end_loc)}</name>
+    <desc>Distancia: {dist} km | Consumo: {energy} kWh | Eficiencia: {efficiency} Wh/km</desc>
     <trkseg>
 {trkpts_xml}    </trkseg>
-  </trk>
+  </trk>"""
+    else:
+        trk_content = f"""  <trk>
+    <name>{xml_escape(start_loc)} -&gt; {xml_escape(end_loc)}</name>
+    <desc>Trayecto registrado sin coordenadas GPS disponibles</desc>
+  </trk>"""
+
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="LaVera EV Telemetry Hub"
+  xmlns="http://www.topografix.com/GPX/1/1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <metadata>
+    <name>Trayecto {xml_escape(started_at)}: {xml_escape(start_loc)} -&gt; {xml_escape(end_loc)}</name>
+    <desc>Distancia: {dist} km | Consumo: {energy} kWh | Eficiencia: {efficiency} Wh/km</desc>
+    <time>{started_iso}</time>
+  </metadata>
+{wpts_xml}{trk_content}
 </gpx>"""
 
 
-def generate_drive_kml(drive: dict) -> str:
-    started_at = drive.get("started_at", "N/A")
+def generate_drive_kml(drive: dict, storage=None) -> str:
+    """
+    Generates a valid KML 2.2 file for a drive session, compatible with Google Earth and GIS tools.
+    """
+    started_at = drive.get("started_at", "")
+    ended_at = drive.get("ended_at", started_at)
     start_loc = drive.get("start_location") or "Origen"
     end_loc = drive.get("end_location") or "Destino"
-    dist = drive.get("distance_km", 0)
+    dist = drive.get("distance_km", 0.0)
+    energy = drive.get("energy_kwh", 0.0)
+    efficiency = drive.get("efficiency_wh_km", 0.0)
 
-    pts = []
-    if drive.get("raw_json"):
-        try:
-            raw = json.loads(drive["raw_json"]) if isinstance(drive["raw_json"], str) else drive["raw_json"]
-            if isinstance(raw, dict):
-                if "waypoints" in raw and isinstance(raw["waypoints"], list):
-                    for w in raw["waypoints"]:
-                        lat = w.get("lat") or w.get("latitude")
-                        lon = w.get("lon") or w.get("lng") or w.get("longitude")
-                        if lat and lon:
-                            pts.append(f"{lon},{lat},0")
-                elif "start_latitude" in raw and "end_latitude" in raw:
-                    pts.append(f"{raw.get('start_longitude')},{raw['start_latitude']},0")
-                    pts.append(f"{raw.get('end_longitude')},{raw['end_latitude']},0")
-        except Exception:
-            pass
+    pts, start_wpt, end_wpt = extract_drive_trackpoints(drive, storage=storage)
 
-    if not pts:
-        pts = ["-3.7038,40.4168,0", "-3.6900,40.4500,0"]
+    coords_list = []
+    for p in pts:
+        ele = p.get("ele") if p.get("ele") is not None else 0
+        coords_list.append(f"{p['lon']:.6f},{p['lat']:.6f},{ele}")
+    coords_str = " ".join(coords_list)
 
-    coords_str = " ".join(pts)
+    placemarks_xml = ""
+
+    if start_wpt:
+        placemarks_xml += f"""    <Placemark>
+      <name>{xml_escape(start_wpt['name'])} (Origen)</name>
+      <description>Inicio del trayecto: {xml_escape(started_at)}</description>
+      <styleUrl>#startPin</styleUrl>
+      <Point>
+        <coordinates>{start_wpt['lon']:.6f},{start_wpt['lat']:.6f},0</coordinates>
+      </Point>
+    </Placemark>\n"""
+
+    if end_wpt and (not start_wpt or (end_wpt["lat"] != start_wpt["lat"] or end_wpt["lon"] != start_wpt["lon"])):
+        placemarks_xml += f"""    <Placemark>
+      <name>{xml_escape(end_wpt['name'])} (Destino)</name>
+      <description>Destino del trayecto: {xml_escape(ended_at)}</description>
+      <styleUrl>#endPin</styleUrl>
+      <Point>
+        <coordinates>{end_wpt['lon']:.6f},{end_wpt['lat']:.6f},0</coordinates>
+      </Point>
+    </Placemark>\n"""
+
+    if coords_str:
+        placemarks_xml += f"""    <Placemark>
+      <name>{xml_escape(start_loc)} -&gt; {xml_escape(end_loc)}</name>
+      <description>Distancia: {dist} km | Consumo: {energy} kWh | Eficiencia: {efficiency} Wh/km</description>
+      <styleUrl>#routeLine</styleUrl>
+      <LineString>
+        <extrude>1</extrude>
+        <tessellate>1</tessellate>
+        <altitudeMode>clampToGround</altitudeMode>
+        <coordinates>{coords_str}</coordinates>
+      </LineString>
+    </Placemark>\n"""
+    else:
+        placemarks_xml += f"""    <Placemark>
+      <name>{xml_escape(start_loc)} -&gt; {xml_escape(end_loc)}</name>
+      <description>Trayecto registrado sin coordenadas GPS disponibles ({dist} km, {energy} kWh)</description>
+    </Placemark>\n"""
 
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
-    <name>Trayecto {started_at}</name>
-    <description>{start_loc} a {end_loc} ({dist} km, {drive.get('energy_kwh', 0)} kWh)</description>
-    <Placemark>
-      <name>{start_loc} → {end_loc}</name>
-      <LineString>
-        <tessellate>1</tessellate>
-        <coordinates>{coords_str}</coordinates>
-      </LineString>
-    </Placemark>
-  </Document>
+    <name>Trayecto {xml_escape(started_at)}: {xml_escape(start_loc)} -&gt; {xml_escape(end_loc)}</name>
+    <description>Distancia: {dist} km | Consumo: {energy} kWh | Eficiencia: {efficiency} Wh/km</description>
+    <Style id="routeLine">
+      <LineStyle>
+        <color>ffd97400</color>
+        <width>4</width>
+      </LineStyle>
+    </Style>
+    <Style id="startPin">
+      <IconStyle>
+        <color>ff00ff00</color>
+        <scale>1.1</scale>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/paddle/grn-circle.png</href>
+        </Icon>
+      </IconStyle>
+    </Style>
+    <Style id="endPin">
+      <IconStyle>
+        <color>ff0000ff</color>
+        <scale>1.1</scale>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/paddle/red-circle.png</href>
+        </Icon>
+      </IconStyle>
+    </Style>
+{placemarks_xml}  </Document>
 </kml>"""
 
 
@@ -279,11 +547,11 @@ class LaVeraRequestHandler(SimpleHTTPRequestHandler):
                 return
 
             if fmt == "kml":
-                content = generate_drive_kml(drive)
+                content = generate_drive_kml(drive, storage=storage)
                 mime = "application/vnd.google-earth.kml+xml"
                 filename = f"lavera_drive_{drive['id']}.kml"
             else:
-                content = generate_drive_gpx(drive)
+                content = generate_drive_gpx(drive, storage=storage)
                 mime = "application/gpx+xml"
                 filename = f"lavera_drive_{drive['id']}.gpx"
 
@@ -359,6 +627,62 @@ class LaVeraRequestHandler(SimpleHTTPRequestHandler):
             })
             return
 
+        # Serve Tesla Fleet 3rd Party Public Key for domain verification (.well-known)
+        if path == "/.well-known/appspecific/com.tesla.3p.public-key.pem":
+            pub_pem = storage.get_setting("tesla_public_key_pem", "")
+            if not pub_pem:
+                self.send_response(404)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(b"Tesla Fleet public key not yet generated. Use /api/gateway/tesla/generate-keys")
+                return
+            body = pub_pem.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        # Vampire Drain & Polling Lifecycle Status
+        if path == "/api/gateway/vampire-status":
+            summary = gateway.vampire_protector.get_status_summary() if hasattr(gateway, "vampire_protector") else {}
+            self._send_json({
+                "status": "success",
+                "vehicles": summary
+            })
+            return
+
+        # Gateway live status & metrics
+        if path == "/api/gateway/status":
+            gw_status = gateway.get_gateway_status()
+            gw_status["has_tesla_credentials"] = bool(storage.get_setting("tesla_client_id") and storage.get_setting("tesla_refresh_token"))
+            gw_status["has_tessie_token"] = bool(storage.get_setting("tessie_token"))
+            gw_status["has_keypair"] = bool(storage.get_setting("tesla_private_key_pem"))
+            gw_status["public_key_pem"] = storage.get_setting("tesla_public_key_pem", "")
+            gw_status["tesla_region"] = storage.get_setting("tesla_region", "eu")
+            self._send_json(gw_status)
+            return
+
+        # Gateway configuration details
+        if path == "/api/gateway/config":
+            saved_tesla_id = storage.get_setting("tesla_client_id", "")
+            saved_tessie = storage.get_setting("tessie_token", "")
+            masked_tesla_id = (saved_tesla_id[:6] + "..." + saved_tesla_id[-4:]) if len(saved_tesla_id) > 10 else ("*" * len(saved_tesla_id))
+            masked_tessie = (saved_tessie[:6] + "..." + saved_tessie[-4:]) if len(saved_tessie) > 10 else ("*" * len(saved_tessie))
+            self._send_json({
+                "primary_provider": storage.get_setting("telemetry_primary_provider", "tessie"),
+                "fallback_enabled": storage.get_setting("telemetry_fallback_enabled", "1") == "1",
+                "tesla_client_id": masked_tesla_id,
+                "has_tesla_secret": bool(storage.get_setting("tesla_client_secret")),
+                "has_tesla_refresh_token": bool(storage.get_setting("tesla_refresh_token")),
+                "tesla_region": storage.get_setting("tesla_region", "eu"),
+                "tessie_token": masked_tessie,
+                "has_keypair": bool(storage.get_setting("tesla_private_key_pem")),
+            })
+            return
+
         if path == "/api/export":
             vin = query.get("vin", [None])[0]
             export_data = storage.export_all_json(vin=vin)
@@ -381,6 +705,72 @@ class LaVeraRequestHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
+
+        # Configure Gateway Providers & Failover
+        if path == "/api/gateway/config":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                payload = json.loads(post_data.decode("utf-8")) if post_data else {}
+            except Exception:
+                payload = {}
+
+            if "primary_provider" in payload:
+                storage.set_setting("telemetry_primary_provider", str(payload["primary_provider"]).lower())
+            if "fallback_enabled" in payload:
+                storage.set_setting("telemetry_fallback_enabled", "1" if payload["fallback_enabled"] else "0")
+            if "tesla_client_id" in payload and payload["tesla_client_id"]:
+                storage.set_setting("tesla_client_id", str(payload["tesla_client_id"]).strip())
+            if "tesla_client_secret" in payload and payload["tesla_client_secret"]:
+                storage.set_setting("tesla_client_secret", str(payload["tesla_client_secret"]).strip())
+            if "tesla_refresh_token" in payload and payload["tesla_refresh_token"]:
+                storage.set_setting("tesla_refresh_token", str(payload["tesla_refresh_token"]).strip())
+            if "tesla_region" in payload:
+                storage.set_setting("tesla_region", str(payload["tesla_region"]).strip().lower())
+            if "tessie_token" in payload and payload["tessie_token"]:
+                storage.set_setting("tessie_token", str(payload["tessie_token"]).strip())
+
+            # Re-initialize gateway with newly updated credentials
+            global gateway
+            gateway = init_gateway(storage)
+
+            self._send_json({
+                "status": "success",
+                "message": "Configuración de pasarela de telemetría actualizada.",
+                "gateway": gateway.get_gateway_status()
+            })
+            return
+
+        # Generate or retrieve Tesla Fleet ECDSA NIST P-256 Keypair
+        if path == "/api/gateway/tesla/generate-keys":
+            existing_pub = storage.get_setting("tesla_public_key_pem")
+            existing_priv = storage.get_setting("tesla_private_key_pem")
+            if existing_pub and existing_priv:
+                self._send_json({
+                    "status": "success",
+                    "created": False,
+                    "public_key_pem": existing_pub,
+                    "message": "Clave pública existente recuperada."
+                })
+                return
+
+            try:
+                priv_pem, pub_pem = TeslaSecurityManager.generate_fleet_keypair()
+                storage.set_setting("tesla_private_key_pem", priv_pem)
+                storage.set_setting("tesla_public_key_pem", pub_pem)
+
+                # Update running gateway security manager
+                gateway = init_gateway(storage)
+
+                self._send_json({
+                    "status": "success",
+                    "created": True,
+                    "public_key_pem": pub_pem,
+                    "message": "Nuevo par de claves ECDSA NIST P-256 generado con éxito."
+                })
+            except Exception as e:
+                self._send_json({"status": "error", "message": f"Error generando claves: {str(e)}"}, status=500)
+            return
 
         if path == "/api/sync/tessie":
             content_length = int(self.headers.get("Content-Length", 0))
@@ -417,30 +807,53 @@ class LaVeraRequestHandler(SimpleHTTPRequestHandler):
 
                 imported_stats = {"drives": 0, "charges": 0, "battery": 0}
 
-                # 1. Live State
+                # 1. Live State via Hybrid Gateway (Primary with automatic Failover)
+                active_source = "tessie"
+                fallback_engaged = False
                 try:
-                    state = client.get_state(vin)
-                    if state and isinstance(state, dict):
-                        charge_st = state.get("charge_state", {})
-                        drive_st = state.get("drive_state", {})
-                        climate_st = state.get("climate_state", {})
-                        vehicle_st = state.get("vehicle_state", {})
+                    # Attempt state acquisition through Hybrid Telemetry Gateway
+                    state_obj, executing_prov = gateway.get_vehicle_state(vin)
+                    active_source = executing_prov
+                    fallback_engaged = (executing_prov != gateway.primary_name)
 
-                        storage.insert_live_telemetry({
-                            "vin": vin,
-                            "timestamp": state.get("timestamp"),
-                            "soc": charge_st.get("battery_level"),
-                            "speed_kmh": (float(drive_st.get("speed") or 0) * 1.60934) if drive_st.get("speed") is not None else 0,
-                            "power_kw": charge_st.get("charger_power") or 0,
-                            "battery_temp_c": climate_st.get("inside_temp"),
-                            "odometer_km": (float(vehicle_st.get("odometer") or 0) * 1.60934) if vehicle_st.get("odometer") else 0,
-                            "charging_state": charge_st.get("charging_state", "STANDBY"),
-                            "latitude": drive_st.get("latitude"),
-                            "longitude": drive_st.get("longitude"),
-                            "raw_json": json.dumps(state)
-                        })
-                except Exception as live_err:
-                    print(f"[!] Warning fetching live state: {live_err}")
+                    storage.insert_live_telemetry({
+                        "vin": vin,
+                        "timestamp": state_obj.timestamp,
+                        "soc": state_obj.soc,
+                        "speed_kmh": state_obj.speed_kmh,
+                        "power_kw": state_obj.power_kw,
+                        "battery_temp_c": state_obj.battery_temp_c,
+                        "odometer_km": state_obj.odometer_km,
+                        "charging_state": state_obj.charging_state,
+                        "latitude": state_obj.latitude,
+                        "longitude": state_obj.longitude,
+                        "raw_json": json.dumps(state_obj.raw_payload) if isinstance(state_obj.raw_payload, dict) else "{}"
+                    })
+                except Exception as gw_err:
+                    print(f"[!] Gateway state fetch fallback attempt to direct client: {gw_err}")
+                    try:
+                        state = client.get_state(vin)
+                        if state and isinstance(state, dict):
+                            charge_st = state.get("charge_state", {})
+                            drive_st = state.get("drive_state", {})
+                            climate_st = state.get("climate_state", {})
+                            vehicle_st = state.get("vehicle_state", {})
+
+                            storage.insert_live_telemetry({
+                                "vin": vin,
+                                "timestamp": state.get("timestamp"),
+                                "soc": charge_st.get("battery_level"),
+                                "speed_kmh": (float(drive_st.get("speed") or 0) * 1.60934) if drive_st.get("speed") is not None else 0,
+                                "power_kw": charge_st.get("charger_power") or 0,
+                                "battery_temp_c": climate_st.get("inside_temp"),
+                                "odometer_km": (float(vehicle_st.get("odometer") or 0) * 1.60934) if vehicle_st.get("odometer") else 0,
+                                "charging_state": charge_st.get("charging_state", "STANDBY"),
+                                "latitude": drive_st.get("latitude"),
+                                "longitude": drive_st.get("longitude"),
+                                "raw_json": json.dumps(state)
+                            })
+                    except Exception as live_err:
+                        print(f"[!] Warning fetching direct live state: {live_err}")
 
                 # 2. Historical Drives
                 if sync_drives:

@@ -520,6 +520,12 @@ class LaVeraRequestHandler(SimpleHTTPRequestHandler):
             self._send_json(summary)
             return
 
+        if path == "/api/live/state":
+            vin = query.get("vin", [None])[0]
+            live_state = storage.get_live_vehicle_state(vin=vin)
+            self._send_json(live_state)
+            return
+
         if path == "/api/drives":
             vin = query.get("vin", [None])[0]
             start_date = query.get("start_date", [None])[0]
@@ -705,6 +711,43 @@ class LaVeraRequestHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
+        query = urllib.parse.parse_qs(parsed.query)
+
+        # Update or Simulate Vehicle Live State
+        if path == "/api/live/state":
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                payload = json.loads(post_data.decode("utf-8")) if post_data else {}
+            except Exception:
+                payload = {}
+            vin = payload.get("vin") or query.get("vin", ["5YJ3E7EB8NF123456"])[0]
+            curr = storage.get_live_vehicle_state(vin=vin)
+            for domain in ["charge_state", "climate_state", "drive_state", "vehicle_state", "fleet_telemetry"]:
+                if domain in payload and isinstance(payload[domain], dict):
+                    curr[domain].update(payload[domain])
+            for k in ["vin", "display_name"]:
+                if k in payload:
+                    curr[k] = payload[k]
+            import datetime
+            curr["timestamp"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            storage.insert_live_telemetry({
+                "vin": curr.get("vin", vin),
+                "timestamp": curr["timestamp"],
+                "soc": curr["charge_state"].get("battery_level", 78),
+                "speed_kmh": curr["drive_state"].get("speed", 0),
+                "power_kw": curr["drive_state"].get("power", 0.0),
+                "battery_temp_c": 22.0,
+                "inside_temp_c": curr["climate_state"].get("inside_temp", 21.0),
+                "outside_temp_c": curr["climate_state"].get("outside_temp", 18.0),
+                "odometer_km": curr["vehicle_state"].get("odometer", 32750.0),
+                "charging_state": curr["charge_state"].get("charging_state", "STANDBY"),
+                "latitude": curr["drive_state"].get("latitude", 40.4168),
+                "longitude": curr["drive_state"].get("longitude", -3.7038),
+                "raw_json": json.dumps(curr)
+            })
+            self._send_json({"status": "success", "state": curr})
+            return
 
         # Configure Gateway Providers & Failover
         if path == "/api/gateway/config":

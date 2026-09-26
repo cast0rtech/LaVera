@@ -163,6 +163,18 @@ LaVera normaliza los flujos de datos en vivo de la **Tesla Fleet API**, **Tessie
 
 ---
 
+## 🚘 Menú de Vehículo en Vivo & Gemelo Digital del Interior
+
+El panel web All-in-One incluye la pestaña interactiva **🚘 Vehículo & Interior**, diseñada para ofrecer una vista completa y en tiempo real del estado del vehículo:
+- **💺 Habitáculo Interior y Climatización:** Esquema visual de los 5 asientos con selector interactivo de calefacción (niveles 0 a 3 llamas), volante térmico, pantalla multimedia Tesla en vivo, y climatizador bi-zona (con setpoints independientes para conductor y acompañante, y lectura comparada de temperatura de cabina vs exterior).
+- **🚗 Carrocería, Puertas y Cierres:** Estado y control de maleteros (Frunk y Trunk), 4 puertas laterales, 4 ventanillas con función ventilar/cerrar, y puerto de recarga con pestillo de seguridad.
+- **🛞 Presión de Neumáticos (TPMS):** Monitorización de las 4 ruedas en Bar y PSI con alertas de presión óptima.
+- **🔋 Batería, BMS y Tren de Potencia:** Visualización del SoC actual y utilizable (descontando bloqueos por baja temperatura), límite de recarga, voltaje de pack, corriente, potencia de carga, y tiempo estimado hasta finalización.
+- **🧭 Dinámica y Navegación:** Velocidad instantánea, potencia (aceleración / regeneración), brújula con rumbo magnético, destino activo con estimación de SoC a la llegada y retraso por tráfico.
+- **🎮 Simulador Interactivo:** Botones para simular en tiempo real escenarios de autovía (115 km/h, D), Supercharging (150 kW), reposo/aparcado y precalentamiento de habitáculo.
+
+---
+
 ## 🔄 Importación de Datos de Tesla (Tessie y TeslaFi)
 
 Si vienes de utilizar **Tessie** o **TeslaFi**, LaVera consolida todo tu histórico:

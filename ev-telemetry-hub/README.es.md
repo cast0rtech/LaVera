@@ -54,6 +54,17 @@ El hub extrae automáticamente las coordenadas de origen y destino de cada traye
 
 ---
 
+## 🚘 Vehículo en Vivo & Gemelo Digital del Interior
+
+El panel All-in-One incluye la pestaña interactiva **🚘 Vehículo & Interior**, que muestra el gemelo digital completo del coche en tiempo real:
+- **Interior & Habitáculo:** Vista esquemática de los 5 asientos con niveles de calefacción (0 a 3 llamas), volante térmico interactivo, pantalla táctil central de navegación y climatización bi-zona (con ajuste independiente conductor/acompañante y comparativa de temperatura interior vs exterior).
+- **Carrocería, Cierres y TPMS:** Supervisión de puertas delantera/trasera, maletero delantero (*Frunk*), trasero (*Trunk*), puerto de recarga con pestillo de seguridad y presión de las 4 ruedas en Bar/PSI con indicadores de estado.
+- **Tren de Potencia & Batería (BMS):** SoC utilizable descontando frío, límite de recarga, voltaje, amperaje, potencia instantánea y precalentamiento de batería.
+- **Diagnóstico de Celdas:** Desequilibrio máximo/mínimo de celdas (*Cell Brick Delta* en mV) y temperatura de inversores.
+- **Simulador Interactivo:** Permite probar el panel offline simulando escenarios en autovía (115 km/h), Supercharging (150 kW), reposo o precalentamiento.
+
+---
+
 ## 🔄 Importador Histórico de Tesla (Tessie y TeslaFi)
 
 Migra fácilmente tus registros históricos de trayectos, cargas y degradación de batería desde **Tessie** (CSV / JSON) o **TeslaFi** (CSV):

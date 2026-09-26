@@ -163,6 +163,18 @@ LaVera structures continuous streaming telemetry from the **Tesla Fleet API**, *
 
 ---
 
+## 🚘 Live Vehicle Menu & Cabin Interior Digital Twin
+
+The All-in-One web dashboard features the dedicated interactive tab **🚘 Vehículo & Interior (Live Vehicle & Interior)** for real-time monitoring and actuation:
+- **💺 Cabin Interior & Bi-Zone Climate:** Visual diagram of all 5 seats with interactive 3-stage seat heating flames, heated steering wheel toggle, live Tesla center display preview, and dual-zone climate control (independent driver/passenger setpoints, inside vs outside temperature comparison).
+- **🚗 Chassis, Closures & Latches:** Live status and actuation for front trunk (*Frunk*), rear trunk (*Trunk*), 4 side doors, 4 windows with venting/closing controls, and charge port with lock latch status.
+- **🛞 Tire Pressures (TPMS):** Real-time monitoring of all 4 wheel pressures in Bar and PSI with green optimal indicators.
+- **🔋 Battery, BMS & High-Voltage Powertrain:** Usable battery level discounting cold buffer, charge limit target, pack voltage, current, charging power, and time to full charge.
+- **🧭 Dynamics & Active Navigation:** Instantaneous speed, power (acceleration / regen braking), magnetic compass heading, active destination route with estimated SoC at arrival and traffic delay.
+- **🎮 Interactive Simulator:** Quick-action buttons to test live states offline: highway drive (115 km/h, D), Supercharging (150 kW), parked/sleep, or cabin preconditioning.
+
+---
+
 ## 🔄 Tesla Historical Importer (Tessie & TeslaFi)
 
 Consolidate all historical driving, charging, and battery degradation logs from **Tessie** or **TeslaFi**:

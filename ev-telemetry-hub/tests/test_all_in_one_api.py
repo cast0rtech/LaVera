@@ -279,6 +279,50 @@ class TestAllInOneAPI(unittest.TestCase):
             self.assertEqual(data["type"], "drives")
             self.assertEqual(data["records_imported"], 1)
 
+    def test_11_live_vehicle_state(self):
+        # 1. Test GET /api/live/state
+        url_get = f"http://127.0.0.1:{self.port}/api/live/state"
+        with urllib.request.urlopen(url_get, timeout=3) as resp:
+            self.assertEqual(resp.status, 200)
+            data = json.loads(resp.read().decode())
+            self.assertIn("charge_state", data)
+            self.assertIn("climate_state", data)
+            self.assertIn("drive_state", data)
+            self.assertIn("vehicle_state", data)
+            self.assertIn("fleet_telemetry", data)
+            # Verify cabin interior metrics
+            self.assertIn("seat_heater_left", data["climate_state"])
+            self.assertIn("steering_wheel_heater", data["climate_state"])
+            self.assertIn("driver_temp_setting", data["climate_state"])
+            self.assertIn("tpms_pressure_fl", data["vehicle_state"])
+
+        # 2. Test POST /api/live/state (actuator / simulation update)
+        body = json.dumps({
+            "vin": "TEST_VIN_LIVE",
+            "climate_state": {
+                "seat_heater_left": 3,
+                "driver_temp_setting": 22.5
+            },
+            "vehicle_state": {
+                "locked": False,
+                "ft": 1
+            }
+        }).encode("utf-8")
+        req_post = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/api/live/state",
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req_post, timeout=3) as resp:
+            self.assertEqual(resp.status, 200)
+            res = json.loads(resp.read().decode())
+            self.assertEqual(res["status"], "success")
+            self.assertEqual(res["state"]["climate_state"]["seat_heater_left"], 3)
+            self.assertEqual(res["state"]["climate_state"]["driver_temp_setting"], 22.5)
+            self.assertEqual(res["state"]["vehicle_state"]["locked"], False)
+            self.assertEqual(res["state"]["vehicle_state"]["ft"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

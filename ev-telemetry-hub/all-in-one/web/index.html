@@ -40,6 +40,7 @@
     <!-- Navigation Tabs -->
     <nav class="nav-tabs">
       <button class="tab-btn active" data-tab="overview" data-i18n="tab_overview">📊 Visión General</button>
+      <button class="tab-btn" data-tab="live" data-i18n="tab_live">🚘 Vehículo & Interior</button>
       <button class="tab-btn" data-tab="drives" data-i18n="tab_drives">🚗 Conducciones</button>
       <button class="tab-btn" data-tab="charges" data-i18n="tab_charges">⚡ Cargas</button>
       <button class="tab-btn" data-tab="battery" data-i18n="tab_battery">🔋 Salud Batería</button>
@@ -142,6 +143,542 @@
                 <div class="gauge-metric"><span class="label" data-i18n="gauge_temp">Temp. Pack:</span> <strong id="gauge-temp-text">--°C</strong></div>
                 <div class="gauge-metric"><span class="label" data-i18n="gauge_power">Potencia:</span> <strong id="gauge-power-text">-- kW</strong></div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB: LIVE VEHICLE & INTERIOR DIGITAL TWIN -->
+      <section id="tab-live" class="tab-pane">
+        <!-- Live Vehicle Control Bar -->
+        <div class="card live-header-card mb-3">
+          <div class="live-header-main">
+            <div class="live-car-info">
+              <div class="live-car-title-row">
+                <span class="live-beacon pulsing"></span>
+                <h3 id="live-car-name">Tesla Model 3 / Y Long Range</h3>
+                <span class="badge info" id="live-vin-badge">5YJ3E7EB8NF123456</span>
+                <span class="badge success" id="live-fw-badge">v2024.26.8</span>
+                <span class="badge warning" id="live-ota-badge" style="display:inline-flex;">⚡ OTA 2024.32.4 Lista</span>
+              </div>
+              <p class="live-meta-row">
+                <span>📍 <span id="live-loc-desc">Madrid (Paseo de la Castellana)</span></span>
+                <span>⏱️ Última señal: <strong id="live-timestamp">--:--:--</strong></span>
+                <span>🛣️ Odómetro: <strong id="live-odo-km">32,750 km</strong></span>
+              </p>
+            </div>
+
+            <div class="live-status-actions">
+              <!-- Transmission PRND Selector -->
+              <div class="prnd-container" title="Modo de Transmisión">
+                <span class="prnd-badge active" id="prnd-p">P</span>
+                <span class="prnd-badge" id="prnd-r">R</span>
+                <span class="prnd-badge" id="prnd-n">N</span>
+                <span class="prnd-badge" id="prnd-d">D</span>
+              </div>
+
+              <!-- Quick Security & Occupancy Toggles -->
+              <div class="live-pill-group">
+                <button class="btn btn-xs btn-outline live-toggle-btn" id="btn-toggle-lock" title="Bloquear / Desbloquear Vehículo">
+                  <span id="icon-lock">🔒</span> <span id="txt-lock">Bloqueado</span>
+                </button>
+                <button class="btn btn-xs btn-outline live-toggle-btn" id="btn-toggle-sentry" title="Activar / Desactivar Modo Centinela">
+                  <span id="icon-sentry">👁️</span> <span id="txt-sentry">Centinela ON</span>
+                </button>
+                <span class="badge badge-presence" id="badge-user-present">👤 Ocupante a bordo</span>
+              </div>
+
+              <!-- Live Auto-Refresh -->
+              <div class="live-refresh-toggle">
+                <label class="switch-label">
+                  <input type="checkbox" id="chk-live-refresh" checked>
+                  <span>Auto-refresco (3s)</span>
+                </label>
+                <button class="btn btn-xs btn-secondary" id="btn-live-manual-refresh" title="Actualizar ahora">🔄</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upper Grid: Cabin Interior & Exterior Closures -->
+        <div class="live-grid-2col mb-3">
+
+          <!-- 1. VEHICLE CABIN INTERIOR & CLIMATE -->
+          <div class="card cabin-card">
+            <div class="card-header">
+              <div>
+                <h3 data-i18n="live_cabin_title">💺 Habitáculo Interior & Climatización Bi-Zona</h3>
+                <p class="card-sub" data-i18n="live_cabin_sub">Asientos calefactables interactivos, volante térmico, pantalla central y climatizador</p>
+              </div>
+              <div class="cabin-quick-state">
+                <span class="badge success" id="badge-climate-power">A/C ON</span>
+                <span class="badge info" id="badge-keeper-mode">Modo: Normal</span>
+              </div>
+            </div>
+
+            <div class="cabin-body">
+              <!-- Visual Cockpit Schematic -->
+              <div class="cockpit-schematic">
+                <!-- Front Cabin Row -->
+                <div class="cockpit-row front-row">
+                  <!-- Driver Seat (FL) -->
+                  <div class="seat-wrapper">
+                    <button class="seat-btn" id="seat-fl" data-seat="seat_heater_left" title="Conductor: Clic para cambiar nivel de calefacción (0-3)">
+                      <div class="seat-headrest"></div>
+                      <div class="seat-cushion">
+                        <span class="seat-icon">💺</span>
+                        <span class="seat-label" data-i18n="live_seat_fl">Conductor</span>
+                        <div class="seat-heat-indicator" id="seat-fl-heat">
+                          <span class="flame flame-1">🔥</span>
+                          <span class="flame flame-2">🔥</span>
+                          <span class="flame flame-3">🔥</span>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+
+                  <!-- Center Console & Steering / Touchscreen -->
+                  <div class="center-console">
+                    <!-- Steering Wheel -->
+                    <button class="steering-btn" id="btn-steering-heat" title="Volante Térmico (Clic para activar/desactivar)">
+                      <span class="wheel-icon">⭕</span>
+                      <span class="wheel-label">Volante</span>
+                      <span class="wheel-heat-icon" id="icon-steering-heat">🔥</span>
+                    </button>
+
+                    <!-- Mini Touchscreen Mockup -->
+                    <div class="mini-touchscreen" id="mini-touchscreen" title="Pantalla Central Tesla">
+                      <div class="ts-top-bar">
+                        <span id="ts-gear">P</span>
+                        <span id="ts-speed">0 km/h</span>
+                        <span id="ts-soc">78%</span>
+                      </div>
+                      <div class="ts-content">
+                        <div class="ts-nav-preview">
+                          <span class="ts-nav-icon">🗺️</span>
+                          <span class="ts-nav-text" id="ts-nav-dest">P. Castellana 200</span>
+                        </div>
+                        <div class="ts-music-preview">
+                          <span>🎵 Spotify: EV Synthwave</span>
+                        </div>
+                      </div>
+                      <div class="ts-bottom-bar">
+                        <span id="ts-temp-driver">21.0°</span>
+                        <span class="ts-fan-icon">🌀 <span id="ts-fan-spd">3</span></span>
+                        <span id="ts-temp-pass">21.5°</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Passenger Seat (FR) -->
+                  <div class="seat-wrapper">
+                    <button class="seat-btn" id="seat-fr" data-seat="seat_heater_right" title="Acompañante: Clic para cambiar nivel de calefacción (0-3)">
+                      <div class="seat-headrest"></div>
+                      <div class="seat-cushion">
+                        <span class="seat-icon">💺</span>
+                        <span class="seat-label" data-i18n="live_seat_fr">Acompañante</span>
+                        <div class="seat-heat-indicator" id="seat-fr-heat">
+                          <span class="flame flame-1">🔥</span>
+                          <span class="flame flame-2">🔥</span>
+                          <span class="flame flame-3">🔥</span>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Rear Cabin Row -->
+                <div class="cockpit-row rear-row">
+                  <!-- Rear Left Seat -->
+                  <div class="seat-wrapper rear-seat">
+                    <button class="seat-btn" id="seat-rl" data-seat="seat_heater_rear_left" title="Trasero Izq: Clic para cambiar calefacción">
+                      <div class="seat-headrest"></div>
+                      <div class="seat-cushion">
+                        <span class="seat-icon">💺</span>
+                        <span class="seat-label" data-i18n="live_seat_rl">Trasero Izq</span>
+                        <div class="seat-heat-indicator" id="seat-rl-heat">
+                          <span class="flame flame-1">🔥</span>
+                          <span class="flame flame-2">🔥</span>
+                          <span class="flame flame-3">🔥</span>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+
+                  <!-- Rear Center Seat -->
+                  <div class="seat-wrapper rear-seat">
+                    <button class="seat-btn" id="seat-rc" data-seat="seat_heater_rear_center" title="Trasero Centro: Clic para cambiar calefacción">
+                      <div class="seat-headrest"></div>
+                      <div class="seat-cushion">
+                        <span class="seat-icon">💺</span>
+                        <span class="seat-label" data-i18n="live_seat_rc">Trasero Cen</span>
+                        <div class="seat-heat-indicator" id="seat-rc-heat">
+                          <span class="flame flame-1">🔥</span>
+                          <span class="flame flame-2">🔥</span>
+                          <span class="flame flame-3">🔥</span>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+
+                  <!-- Rear Right Seat -->
+                  <div class="seat-wrapper rear-seat">
+                    <button class="seat-btn" id="seat-rr" data-seat="seat_heater_rear_right" title="Trasero Der: Clic para cambiar calefacción">
+                      <div class="seat-headrest"></div>
+                      <div class="seat-cushion">
+                        <span class="seat-icon">💺</span>
+                        <span class="seat-label" data-i18n="live_seat_rr">Trasero Der</span>
+                        <div class="seat-heat-indicator" id="seat-rr-heat">
+                          <span class="flame flame-1">🔥</span>
+                          <span class="flame flame-2">🔥</span>
+                          <span class="flame flame-3">🔥</span>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Climate Controls & Temperature Adjustments -->
+              <div class="climate-controls-panel">
+                <!-- Dual Zone Setpoints -->
+                <div class="dual-zone-row">
+                  <div class="temp-control-box">
+                    <span class="zone-label" data-i18n="live_dual_zone_driver">Conductor</span>
+                    <div class="temp-adjuster">
+                      <button class="btn btn-xs btn-outline btn-temp" id="btn-temp-driver-down">-</button>
+                      <strong class="temp-display" id="disp-temp-driver">21.0°C</strong>
+                      <button class="btn btn-xs btn-outline btn-temp" id="btn-temp-driver-up">+</button>
+                    </div>
+                  </div>
+
+                  <div class="ambient-temps-box">
+                    <div class="ambient-item">
+                      <span class="label">Cabina:</span>
+                      <strong class="value-highlight" id="live-temp-inside">21.5°C</strong>
+                    </div>
+                    <div class="ambient-item">
+                      <span class="label">Exterior:</span>
+                      <strong class="value-muted" id="live-temp-outside">17.0°C</strong>
+                    </div>
+                  </div>
+
+                  <div class="temp-control-box">
+                    <span class="zone-label" data-i18n="live_dual_zone_pass">Acompañante</span>
+                    <div class="temp-adjuster">
+                      <button class="btn btn-xs btn-outline btn-temp" id="btn-temp-pass-down">-</button>
+                      <strong class="temp-display" id="disp-temp-pass">21.5°C</strong>
+                      <button class="btn btn-xs btn-outline btn-temp" id="btn-temp-pass-up">+</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Fan Speed & Airflow Animation -->
+                <div class="fan-control-row">
+                  <div class="fan-info">
+                    <span>Ventilador: <strong id="live-fan-label">Nivel 3 / 7</strong></span>
+                    <div class="airflow-waves active" id="airflow-animation">
+                      <span></span><span></span><span></span><span></span>
+                    </div>
+                  </div>
+                  <div class="fan-speed-selector" id="fan-speed-selector">
+                    <button class="fan-spd-btn" data-spd="0">0</button>
+                    <button class="fan-spd-btn" data-spd="1">1</button>
+                    <button class="fan-spd-btn" data-spd="2">2</button>
+                    <button class="fan-spd-btn active" data-spd="3">3</button>
+                    <button class="fan-spd-btn" data-spd="4">4</button>
+                    <button class="fan-spd-btn" data-spd="5">5</button>
+                    <button class="fan-spd-btn" data-spd="6">6</button>
+                    <button class="fan-spd-btn" data-spd="7">7</button>
+                  </div>
+                  <button class="btn btn-xs btn-outline" id="btn-toggle-climate">A/C: <span id="txt-climate-state">Encendido</span></button>
+                </div>
+
+                <!-- Climate Keeper Modes & Protection -->
+                <div class="climate-modes-row">
+                  <div class="keeper-buttons">
+                    <button class="btn btn-xs btn-outline keeper-btn active" data-mode="off">Normal</button>
+                    <button class="btn btn-xs btn-outline keeper-btn" data-mode="keep">Mantener</button>
+                    <button class="btn btn-xs btn-outline keeper-btn" data-mode="dog">🐶 Modo Perro</button>
+                    <button class="btn btn-xs btn-outline keeper-btn" data-mode="camp">⛺ Acampada</button>
+                  </div>
+                  <div class="defrost-buttons">
+                    <button class="btn btn-xs btn-outline" id="btn-defrost-front" title="Desempañador Delantero">💨 Delantero</button>
+                    <button class="btn btn-xs btn-outline" id="btn-defrost-rear" title="Térmica Trasera">♨️ Trasera</button>
+                  </div>
+                  <div class="overheat-badge" title="Protección Contra Sobrecalentamiento">
+                    🛡️ <span id="txt-overheat">Cabina Protegida (&lt;40°C)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. EXTERIOR CHASSIS, CLOSURES & TPMS -->
+          <div class="card chassis-card">
+            <div class="card-header">
+              <div>
+                <h3 data-i18n="live_doors_windows">🚗 Carrocería, Puertas, Maleteros y TPMS</h3>
+                <p class="card-sub">Supervisión física de aperturas, ventanillas y presión de neumáticos en tiempo real</p>
+              </div>
+              <div class="chassis-quick-actions">
+                <button class="btn btn-xs btn-outline" id="btn-vent-windows">🪟 Ventilar</button>
+                <button class="btn btn-xs btn-outline" id="btn-close-windows">Cerrar Ventanas</button>
+              </div>
+            </div>
+
+            <div class="chassis-body">
+              <!-- Top-Down Car Silhouette Layout -->
+              <div class="car-schematic-wrapper">
+                <!-- Front Section: Frunk & Front Wheels -->
+                <div class="car-part front-part">
+                  <div class="wheel-box fl-wheel">
+                    <div class="tpms-card" id="tpms-fl-box">
+                      <span class="tpms-pos">DEL. IZQ</span>
+                      <strong class="tpms-val" id="tpms-fl-val">2.9 Bar</strong>
+                      <span class="tpms-psi">(42.0 PSI)</span>
+                      <span class="tpms-status ok">Óptimo</span>
+                    </div>
+                  </div>
+
+                  <div class="frunk-box">
+                    <button class="closure-toggle-btn" id="btn-toggle-frunk">
+                      <span class="closure-icon">📦</span>
+                      <span class="closure-name">Frunk</span>
+                      <span class="closure-state-badge" id="badge-frunk">Cerrado</span>
+                    </button>
+                  </div>
+
+                  <div class="wheel-box fr-wheel">
+                    <div class="tpms-card" id="tpms-fr-box">
+                      <span class="tpms-pos">DEL. DER</span>
+                      <strong class="tpms-val" id="tpms-fr-val">2.9 Bar</strong>
+                      <span class="tpms-psi">(42.0 PSI)</span>
+                      <span class="tpms-status ok">Óptimo</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Mid Section: 4 Doors & 4 Windows -->
+                <div class="car-part mid-part">
+                  <!-- Left Doors (Driver Front / Rear Left) -->
+                  <div class="doors-side doors-left">
+                    <button class="closure-toggle-btn door-btn" id="btn-toggle-df">
+                      <span class="closure-icon">🚪</span>
+                      <span class="closure-name">Puerta Del. Izq</span>
+                      <span class="closure-state-badge" id="badge-df">Cerrada</span>
+                    </button>
+                    <button class="closure-toggle-btn door-btn" id="btn-toggle-dr">
+                      <span class="closure-icon">🚪</span>
+                      <span class="closure-name">Puerta Tras. Izq</span>
+                      <span class="closure-state-badge" id="badge-dr">Cerrada</span>
+                    </button>
+                  </div>
+
+                  <!-- Cabin Roof Visual Glass Indicator -->
+                  <div class="roof-glass-box">
+                    <span class="roof-label">Techo Panorámico Cristal</span>
+                    <div class="glass-reflection"></div>
+                  </div>
+
+                  <!-- Right Doors (Pass Front / Rear Right) -->
+                  <div class="doors-side doors-right">
+                    <button class="closure-toggle-btn door-btn" id="btn-toggle-pf">
+                      <span class="closure-icon">🚪</span>
+                      <span class="closure-name">Puerta Del. Der</span>
+                      <span class="closure-state-badge" id="badge-pf">Cerrada</span>
+                    </button>
+                    <button class="closure-toggle-btn door-btn" id="btn-toggle-pr">
+                      <span class="closure-icon">🚪</span>
+                      <span class="closure-name">Puerta Tras. Der</span>
+                      <span class="closure-state-badge" id="badge-pr">Cerrada</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Rear Section: Trunk, Charge Port & Rear Wheels -->
+                <div class="car-part rear-part">
+                  <div class="wheel-box rl-wheel">
+                    <div class="tpms-card" id="tpms-rl-box">
+                      <span class="tpms-pos">TRAS. IZQ</span>
+                      <strong class="tpms-val" id="tpms-rl-val">2.8 Bar</strong>
+                      <span class="tpms-psi">(40.6 PSI)</span>
+                      <span class="tpms-status ok">Óptimo</span>
+                    </div>
+                  </div>
+
+                  <div class="trunk-and-port">
+                    <button class="closure-toggle-btn" id="btn-toggle-trunk">
+                      <span class="closure-icon">🧳</span>
+                      <span class="closure-name">Maletero (Trunk)</span>
+                      <span class="closure-state-badge" id="badge-trunk">Cerrado</span>
+                    </button>
+                    <button class="closure-toggle-btn charge-port-btn" id="btn-toggle-charge-port">
+                      <span class="closure-icon">🔌</span>
+                      <span class="closure-name">Puerto Carga</span>
+                      <span class="closure-state-badge" id="badge-charge-port">Cerrado</span>
+                    </button>
+                  </div>
+
+                  <div class="wheel-box rr-wheel">
+                    <div class="tpms-card" id="tpms-rr-box">
+                      <span class="tpms-pos">TRAS. DER</span>
+                      <strong class="tpms-val" id="tpms-rr-val">2.8 Bar</strong>
+                      <span class="tpms-psi">(40.6 PSI)</span>
+                      <span class="tpms-status ok">Óptimo</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lower Grid: 3 Analytical Powertrain, Route & Fleet Cards -->
+        <div class="live-grid-3col mb-3">
+
+          <!-- 3. POWERTRAIN & HIGH-VOLTAGE BMS -->
+          <div class="card live-metric-card">
+            <div class="card-header">
+              <h3 data-i18n="live_bms_soc">🔋 Batería & BMS en Vivo</h3>
+              <span class="badge success" id="live-charge-state-badge">Standby</span>
+            </div>
+            <div class="metric-card-body">
+              <div class="soc-large-block">
+                <div class="soc-number-row">
+                  <span class="soc-giant" id="live-bms-soc">78%</span>
+                  <div class="soc-sub-info">
+                    <div>Utilizable: <strong id="live-usable-soc">77%</strong></div>
+                    <div>Límite: <strong id="live-charge-limit">80%</strong></div>
+                    <div>Autonomía: <strong id="live-bms-range">395.2 km</strong></div>
+                  </div>
+                </div>
+                <!-- SoC Progress Bar -->
+                <div class="soc-bar-track">
+                  <div class="soc-bar-fill" id="live-soc-bar" style="width: 78%;"></div>
+                  <div class="soc-limit-marker" id="live-limit-marker" style="left: 80%;" title="Límite 80%"></div>
+                </div>
+              </div>
+
+              <div class="electrical-stats-grid">
+                <div class="elec-item">
+                  <span class="elec-label">Voltaje Pack:</span>
+                  <strong class="elec-val" id="live-charger-voltage">230 V</strong>
+                </div>
+                <div class="elec-item">
+                  <span class="elec-label">Corriente Actual:</span>
+                  <strong class="elec-val" id="live-charger-current">16 A</strong>
+                </div>
+                <div class="elec-item">
+                  <span class="elec-label">Potencia Carga:</span>
+                  <strong class="elec-val" id="live-charger-power">11 kW</strong>
+                </div>
+                <div class="elec-item">
+                  <span class="elec-label">Energía Añadida:</span>
+                  <strong class="elec-val" id="live-energy-added">18.5 kWh</strong>
+                </div>
+                <div class="elec-item">
+                  <span class="elec-label">Tiempo Restante:</span>
+                  <strong class="elec-val" id="live-time-to-full">42 min</strong>
+                </div>
+                <div class="elec-item">
+                  <span class="elec-label">Precalentador Batería:</span>
+                  <strong class="elec-val" id="live-battery-heater">Inactivo</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. DYNAMICS & GPS ROUTE -->
+          <div class="card live-metric-card">
+            <div class="card-header">
+              <h3 data-i18n="live_drive_nav">🧭 Dinámica & Navegación GPS</h3>
+              <span class="badge info" id="live-motion-badge">Estacionado</span>
+            </div>
+            <div class="metric-card-body">
+              <div class="dynamics-large-row">
+                <div class="speed-power-box">
+                  <div class="speed-giant" id="live-dyn-speed">0 <small>km/h</small></div>
+                  <div class="power-sub" id="live-dyn-power">0.0 kW</div>
+                </div>
+                <div class="compass-box">
+                  <div class="compass-circle" id="compass-needle" style="transform: rotate(182deg);">⬆️</div>
+                  <span class="compass-heading" id="live-dyn-heading">182° S</span>
+                </div>
+              </div>
+
+              <div class="route-details-box">
+                <div class="route-item">
+                  <span class="r-icon">🏁</span>
+                  <div class="r-info">
+                    <span class="r-label">Destino Activo:</span>
+                    <strong class="r-val" id="live-route-dest">Paseo de la Castellana 200, Madrid</strong>
+                  </div>
+                </div>
+                <div class="route-item-split">
+                  <div>SoC Estimado Llegada: <strong id="live-route-arrival-soc">64% (-14%)</strong></div>
+                  <div>Tráfico: <strong id="live-route-traffic">+4.5 min</strong></div>
+                </div>
+                <div class="route-coords">
+                  <span>GPS: <strong id="live-gps-coords">40.463200, -3.689800</strong></span>
+                  <a href="https://www.openstreetmap.org/?mlat=40.4632&mlon=-3.6898#map=16/40.4632/-3.6898" target="_blank" class="btn btn-xs btn-outline" id="live-map-link">Ver en Mapa 🗺️</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. FLEET & CELL DIAGNOSTICS -->
+          <div class="card live-metric-card">
+            <div class="card-header">
+              <h3 data-i18n="live_fleet_diag">🔬 Diagnóstico de Flota & Celdas</h3>
+              <span class="badge success" id="live-bms-balance-badge">BMS Equilibrado</span>
+            </div>
+            <div class="metric-card-body">
+              <div class="diag-metrics-list">
+                <div class="diag-row">
+                  <span class="d-label">Delta Máx/Mín Celdas (mV):</span>
+                  <strong class="d-val text-emerald" id="live-cell-delta">4.0 mV</strong>
+                </div>
+                <div class="diag-row">
+                  <span class="d-label">Voltaje Celda Máx / Mín:</span>
+                  <span class="d-sub" id="live-cell-voltages">4.152 V / 4.148 V</span>
+                </div>
+                <div class="diag-row">
+                  <span class="d-label">Temp. Inversor Tracción (TR/TF):</span>
+                  <strong class="d-val" id="live-inverter-temps">34.2°C / 31.8°C</strong>
+                </div>
+                <div class="diag-row">
+                  <span class="d-label">Posición Pedal de Freno:</span>
+                  <strong class="d-val" id="live-brake-pedal">0.0%</strong>
+                </div>
+                <div class="diag-row">
+                  <span class="d-label">Energía Total Histórica AC:</span>
+                  <span class="d-sub" id="live-ac-energy">1,450.4 kWh</span>
+                </div>
+                <div class="diag-row">
+                  <span class="d-label">Energía Total DC Supercharger:</span>
+                  <span class="d-sub" id="live-dc-energy">420.8 kWh</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lower Row: Interactive Simulator Bar -->
+        <div class="card simulator-toolbar-card">
+          <div class="sim-header">
+            <div class="sim-title">
+              <span>🎮</span>
+              <div>
+                <h4 data-i18n="live_sim_title">Simulador Interactivo de Telemetría Offline</h4>
+                <p class="sim-sub">Prueba el comportamiento del gemelo digital y los actuadores simulando diferentes estados de marcha, carga o climatización.</p>
+              </div>
+            </div>
+            <div class="sim-actions">
+              <button class="btn btn-sm btn-outline sim-btn" data-sim="drive">🚗 En Autovía (115 km/h, D)</button>
+              <button class="btn btn-sm btn-outline sim-btn" data-sim="supercharge">⚡ Supercharging (150 kW)</button>
+              <button class="btn btn-sm btn-outline sim-btn" data-sim="park">🅿️ Estacionado / Reposo</button>
+              <button class="btn btn-sm btn-outline sim-btn" data-sim="preheat">❄️ Preacondicionamiento</button>
             </div>
           </div>
         </div>

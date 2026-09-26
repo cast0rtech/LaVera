@@ -54,6 +54,17 @@ The hub automatically extracts origin and destination GPS coordinates from each 
 
 ---
 
+## 🚘 Live Vehicle & Cabin Interior Digital Twin
+
+The All-in-One web dashboard features the dedicated interactive tab **🚘 Vehículo & Interior (Live Vehicle & Interior)** displaying real-time digital twin telemetry:
+- **Cockpit & Cabin Interior:** Top-down schematic of all 5 seats with 3-stage seat heating flames, heated steering wheel toggle, center touchscreen preview, and dual-zone climate control (driver/passenger setpoints and ambient inside vs outside temperatures).
+- **Chassis, Closures & TPMS:** Real-time physical monitoring and actuation for doors, Frunk, Trunk, charge port latch, window venting, and 4 tire pressure gauges (Bar/PSI) with healthy status indicators.
+- **Powertrain & High-Voltage BMS:** Usable battery SoC excluding cold pack buffer, daily charge limit marker, voltage, amperage, instantaneous charge power (kW), and pack preconditioning status.
+- **Engineering & Cell Diagnostics:** Cell brick delta voltage (mV), inverter temperatures (TR/TF), and brake pedal position.
+- **Interactive Simulator:** Offline simulation buttons to test high-speed highway driving (115 km/h), Supercharging (150 kW), parked/sleep mode, or cabin preconditioning.
+
+---
+
 ## 🔄 Tesla Historical Importer (Tessie & TeslaFi)
 
 Migrate your historical driving, charging, and battery degradation logs from **Tessie** (CSV / JSON) or **TeslaFi** (CSV):

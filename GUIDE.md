@@ -322,10 +322,27 @@ Every drive session logged or imported into LaVera stores precise coordinate pai
 
 ---
 
-## 10. Step 7: Grafana Dashboards & Metrics
+## 10. Step 7: Grafana Dashboards & All-in-One Web UI
 
-1. Open Grafana at: **`http://<YOUR-SERVER-IP>:3000`**.
-2. Log in with user `admin` and the password configured in `.env`.
+### All-in-One Web Dashboard & Cabin Interior Digital Twin (`http://localhost:8088`)
+The All-in-One UI provides a comprehensive set of real-time monitoring and analytics tabs:
+1. **📊 Visión General (Overview):** Fleet-wide driving KPIs, SOH battery degradation curve, factory pack calibration, and phantom drain isolation.
+2. **🚘 Vehículo & Interior (Live Vehicle & Interior):** Full real-time digital twin monitoring and actuation:
+   - **Cabin Interior:** 5-seat schematic with 3-stage seat heating flames, heated steering wheel toggle, live Tesla center display preview, and dual-zone climate control.
+   - **Chassis & Closures:** Frunk, Trunk, 4 doors, 4 windows, and charge port with lock latch status.
+   - **Tire Pressures (TPMS):** 4 wheel pressures in Bar and PSI with green healthy status indicators.
+   - **High-Voltage BMS:** Usable battery SoC excluding cold buffer, target charge limit, pack voltage, current, charging power, and time to full charge.
+   - **Dynamics & Active GPS Route:** Speedometer, power in kW, compass heading, and active route destination with estimated arrival SoC.
+   - **Interactive Simulator:** Action buttons to simulate highway driving (115 km/h, D), Supercharging (150 kW), parked/sleep mode, or cabin preconditioning.
+3. **🚗 Conducciones (Drives):** Paginated drives history with search, date range filter, and instant exports to GPX 1.1, KML 2.2, and Google Maps.
+4. **⚡ Cargas (Charges):** Charging sessions history with AC vs DC Supercharger breakdown, added energy, and costs.
+5. **🔋 Salud Batería (Battery Health):** Residual capacity degradation curves over time.
+6. **📥 Importar Tessie / TeslaFi (Importer):** Drag-and-drop file ingestion for CSV and JSON logs.
+7. **🔗 Conexión Online & APIs (Online Gateway):** Hybrid gateway configuration, ECDSA public keys, and Tessie tokens.
+8. **💾 Copia de Seguridad (Backup):** Complete database backup in sovereign open JSON format.
+
+### Grafana Dashboards (`http://localhost:3000`)
+1. Open Grafana and log in with user `admin` and the password in `.env`.
 
 ### Sample Flux Queries
 

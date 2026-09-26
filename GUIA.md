@@ -323,10 +323,27 @@ Cada trayecto registrado o importado en LaVera almacena sus coordenadas de inici
 
 ---
 
-## 10. Paso 7: Dashboards y Métricas en Grafana
+## 10. Paso 7: Dashboards y Métricas en Grafana y Panel Web All-in-One
 
-1. Accede a Grafana en: **`http://<IP-DE-TU-SERVIDOR>:3000`**.
-2. Inicia sesión con el usuario `admin` y la contraseña de `.env`.
+### Panel Web All-in-One & Gemelo Digital del Interior (`http://localhost:8088`)
+El panel All-in-One integra las siguientes pestañas de monitorización y control:
+1. **📊 Visión General:** KPIs globales de conducción, degradación SOH, calibración de pack de fábrica y aislamiento de consumo fantasma (*vampire drain*).
+2. **🚘 Vehículo & Interior:** Gemelo digital en tiempo real que supervisa e interactúa con:
+   - **Habitáculo interior:** Esquema visual de los 5 asientos con selector interactivo de niveles de calefacción (0 a 3 llamas), volante térmico, pantalla central y climatizador bi-zona.
+   - **Carrocería y Cierres:** Frunk, Trunk, 4 puertas, 4 ventanillas y puerto de carga con bloqueo de pestillo.
+   - **Presión de Neumáticos (TPMS):** Lectura en Bar y PSI de las 4 ruedas en verde óptimo.
+   - **Batería BMS:** SoC útil, límite diario, voltaje, corriente y potencia de recarga.
+   - **Dinámica y Ruta GPS:** Velocidad, potencia en kW, rumbo y destino activo con SoC de llegada.
+   - **Simulador Interactivo:** Botones para simular en tiempo real estados de autovía (115 km/h), Supercharger (150 kW), reposo o precalentamiento.
+3. **🚗 Conducciones:** Tabla paginada de trayectos con buscador, rango de fechas y exportación directa a GPX 1.1, KML 2.2 y Google Maps.
+4. **⚡ Cargas:** Registro detallado de recargas lentas (AC) y rápidas (DC Supercharger), energía añadida y costes.
+5. **🔋 Salud Batería:** Curva histórica de capacidad residual (kWh) y degradación porcentual.
+6. **📥 Importar Tessie / TeslaFi:** Arrastrar y soltar archivos CSV y JSON con detección automática de delimitadores.
+7. **🔗 Conexión Online & APIs:** Estado de la pasarela híbrida, llaves públicas ECDSA para Tesla Fleet y token de Tessie.
+8. **💾 Copia de Seguridad:** Exportación y descarga de la base de datos completa en JSON abierto.
+
+### Dashboards en Grafana (`http://localhost:3000`)
+1. Accede a Grafana con el usuario `admin` y la contraseña de `.env`.
 
 ### Consultas Flux de Ejemplo
 

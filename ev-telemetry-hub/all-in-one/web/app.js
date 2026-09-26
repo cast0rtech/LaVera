@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initQuickActions();
   initVehicleConfig();
   initFilterToolbars();
+  initLiveVehicle();
   loadAllData();
 
   // Auto-refresh stats every 30 seconds
@@ -31,6 +32,7 @@ function initLangSelect() {
   window.onLangChange = () => {
     loadAllData();
     const activeTab = document.querySelector(".tab-btn.active")?.getAttribute("data-tab");
+    if (activeTab === "live") loadLiveVehicle();
     if (activeTab === "drives") loadDrives();
     if (activeTab === "charges") loadCharges();
     if (activeTab === "battery") loadBattery();
@@ -48,6 +50,7 @@ function switchTab(targetTab) {
   if (targetBtn) targetBtn.classList.add("active");
   if (targetPane) targetPane.classList.add("active");
 
+  if (targetTab === "live") loadLiveVehicle();
   if (targetTab === "drives") loadDrives();
   if (targetTab === "charges") loadCharges();
   if (targetTab === "battery") loadBattery();
@@ -876,4 +879,620 @@ function formatDate(isoStr) {
   } catch (e) {
     return isoStr;
   }
+}
+
+// ========================================================
+// LIVE VEHICLE & INTERIOR DIGITAL TWIN ENGINE
+// ========================================================
+
+let liveVehicleState = null;
+let liveRefreshTimer = null;
+
+function initLiveVehicle() {
+  // Manual refresh button
+  const btnRefresh = document.getElementById("btn-live-manual-refresh");
+  if (btnRefresh) {
+    btnRefresh.addEventListener("click", () => loadLiveVehicle());
+  }
+
+  // Auto-refresh interval (every 3 seconds when tab is active and checkbox is checked)
+  if (liveRefreshTimer) clearInterval(liveRefreshTimer);
+  liveRefreshTimer = setInterval(() => {
+    const isLiveActive = document.querySelector(".tab-btn.active")?.getAttribute("data-tab") === "live";
+    const isAutoCheck = document.getElementById("chk-live-refresh")?.checked;
+    if (isLiveActive && isAutoCheck) {
+      loadLiveVehicle(false); // silent refresh
+    }
+  }, 3000);
+
+  // Seat heating buttons (interactive cycling: 0 -> 1 -> 2 -> 3 -> 0)
+  const seatButtons = [
+    { id: "seat-fl", key: "seat_heater_left" },
+    { id: "seat-fr", key: "seat_heater_right" },
+    { id: "seat-rl", key: "seat_heater_rear_left" },
+    { id: "seat-rc", key: "seat_heater_rear_center" },
+    { id: "seat-rr", key: "seat_heater_rear_right" }
+  ];
+
+  seatButtons.forEach(({ id, key }) => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.addEventListener("click", () => {
+        if (!liveVehicleState) return;
+        const currentLevel = liveVehicleState.climate_state?.[key] || 0;
+        const nextLevel = (currentLevel + 1) % 4;
+        updateLiveVehicleState({ climate_state: { [key]: nextLevel } });
+      });
+    }
+  });
+
+  // Steering wheel heater button
+  const btnSteering = document.getElementById("btn-steering-heat");
+  if (btnSteering) {
+    btnSteering.addEventListener("click", () => {
+      if (!liveVehicleState) return;
+      const current = !!liveVehicleState.climate_state?.steering_wheel_heater;
+      updateLiveVehicleState({ climate_state: { steering_wheel_heater: !current } });
+    });
+  }
+
+  // Dual-Zone Temp Setpoints
+  const btnTempDriverDown = document.getElementById("btn-temp-driver-down");
+  const btnTempDriverUp = document.getElementById("btn-temp-driver-up");
+  const btnTempPassDown = document.getElementById("btn-temp-pass-down");
+  const btnTempPassUp = document.getElementById("btn-temp-pass-up");
+
+  if (btnTempDriverDown) {
+    btnTempDriverDown.addEventListener("click", () => {
+      if (!liveVehicleState) return;
+      const cur = liveVehicleState.climate_state?.driver_temp_setting || 21.0;
+      updateLiveVehicleState({ climate_state: { driver_temp_setting: Math.max(16.0, Math.round((cur - 0.5) * 10) / 10) } });
+    });
+  }
+  if (btnTempDriverUp) {
+    btnTempDriverUp.addEventListener("click", () => {
+      if (!liveVehicleState) return;
+      const cur = liveVehicleState.climate_state?.driver_temp_setting || 21.0;
+      updateLiveVehicleState({ climate_state: { driver_temp_setting: Math.min(28.0, Math.round((cur + 0.5) * 10) / 10) } });
+    });
+  }
+  if (btnTempPassDown) {
+    btnTempPassDown.addEventListener("click", () => {
+      if (!liveVehicleState) return;
+      const cur = liveVehicleState.climate_state?.passenger_temp_setting || 21.5;
+      updateLiveVehicleState({ climate_state: { passenger_temp_setting: Math.max(16.0, Math.round((cur - 0.5) * 10) / 10) } });
+    });
+  }
+  if (btnTempPassUp) {
+    btnTempPassUp.addEventListener("click", () => {
+      if (!liveVehicleState) return;
+      const cur = liveVehicleState.climate_state?.passenger_temp_setting || 21.5;
+      updateLiveVehicleState({ climate_state: { passenger_temp_setting: Math.min(28.0, Math.round((cur + 0.5) * 10) / 10) } });
+    });
+  }
+
+  // Fan speed buttons
+  const fanButtons = document.querySelectorAll(".fan-spd-btn");
+  fanButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const spd = parseInt(btn.getAttribute("data-spd") || "0", 10);
+      updateLiveVehicleState({ climate_state: { fan_status: spd, is_climate_on: spd > 0 } });
+    });
+  });
+
+  // Climate On/Off Toggle
+  const btnClimate = document.getElementById("btn-toggle-climate");
+  if (btnClimate) {
+    btnClimate.addEventListener("click", () => {
+      if (!liveVehicleState) return;
+      const cur = !!liveVehicleState.climate_state?.is_climate_on;
+      updateLiveVehicleState({ climate_state: { is_climate_on: !cur, fan_status: !cur ? 3 : 0 } });
+    });
+  }
+
+  // Keeper Mode buttons
+  const keeperButtons = document.querySelectorAll(".keeper-btn");
+  keeperButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const mode = btn.getAttribute("data-mode") || "off";
+      updateLiveVehicleState({ climate_state: { climate_keeper_mode: mode } });
+    });
+  });
+
+  // Lock Toggle
+  const btnLock = document.getElementById("btn-toggle-lock");
+  if (btnLock) {
+    btnLock.addEventListener("click", () => {
+      if (!liveVehicleState) return;
+      const isLocked = !!liveVehicleState.vehicle_state?.locked;
+      updateLiveVehicleState({ vehicle_state: { locked: !isLocked } });
+    });
+  }
+
+  // Sentry Toggle
+  const btnSentry = document.getElementById("btn-toggle-sentry");
+  if (btnSentry) {
+    btnSentry.addEventListener("click", () => {
+      if (!liveVehicleState) return;
+      const isSentry = !!liveVehicleState.vehicle_state?.sentry_mode;
+      updateLiveVehicleState({ vehicle_state: { sentry_mode: !isSentry } });
+    });
+  }
+
+  // Closures toggles (Frunk, Trunk, Doors, Charge Port)
+  const closureButtons = [
+    { id: "btn-toggle-frunk", key: "ft" },
+    { id: "btn-toggle-trunk", key: "rt" },
+    { id: "btn-toggle-df", key: "df" },
+    { id: "btn-toggle-pf", key: "pf" },
+    { id: "btn-toggle-dr", key: "dr" },
+    { id: "btn-toggle-pr", key: "pr" },
+  ];
+
+  closureButtons.forEach(({ id, key }) => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.addEventListener("click", () => {
+        if (!liveVehicleState) return;
+        const curVal = liveVehicleState.vehicle_state?.[key] || 0;
+        updateLiveVehicleState({ vehicle_state: { [key]: curVal > 0 ? 0 : 1 } });
+      });
+    }
+  });
+
+  const btnPort = document.getElementById("btn-toggle-charge-port");
+  if (btnPort) {
+    btnPort.addEventListener("click", () => {
+      if (!liveVehicleState) return;
+      const cur = !!liveVehicleState.charge_state?.charge_port_door_open;
+      updateLiveVehicleState({ charge_state: { charge_port_door_open: !cur } });
+    });
+  }
+
+  // Windows vent / close
+  const btnVent = document.getElementById("btn-vent-windows");
+  const btnCloseWin = document.getElementById("btn-close-windows");
+  if (btnVent) {
+    btnVent.addEventListener("click", () => {
+      updateLiveVehicleState({ vehicle_state: { fd_window: 1, fp_window: 1, rd_window: 1, rp_window: 1 } });
+    });
+  }
+  if (btnCloseWin) {
+    btnCloseWin.addEventListener("click", () => {
+      updateLiveVehicleState({ vehicle_state: { fd_window: 0, fp_window: 0, rd_window: 0, rp_window: 0 } });
+    });
+  }
+
+  // Simulator buttons
+  const simButtons = document.querySelectorAll(".sim-btn");
+  simButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const simType = btn.getAttribute("data-sim");
+      handleSimulation(simType);
+    });
+  });
+}
+
+async function loadLiveVehicle(showLoading = true) {
+  try {
+    const currentVin = document.getElementById("current-vin")?.innerText?.trim();
+    const queryVin = (currentVin && !currentVin.includes("Tesla")) ? `?vin=${encodeURIComponent(currentVin)}` : "";
+    const res = await fetch(`/api/live/state${queryVin}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    liveVehicleState = data;
+    renderLiveVehicle(data);
+  } catch (err) {
+    console.warn("Error loading live vehicle state:", err);
+  }
+}
+
+async function updateLiveVehicleState(partialState) {
+  try {
+    const currentVin = liveVehicleState?.vin || "5YJ3E7EB8NF123456";
+    const payload = Object.assign({ vin: currentVin }, partialState);
+    const res = await fetch("/api/live/state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      if (updated.state) {
+        liveVehicleState = updated.state;
+        renderLiveVehicle(liveVehicleState);
+      }
+    }
+  } catch (err) {
+    console.error("Error updating live vehicle state:", err);
+  }
+}
+
+function handleSimulation(type) {
+  if (!liveVehicleState) return;
+  if (type === "drive") {
+    updateLiveVehicleState({
+      drive_state: {
+        shift_state: "D",
+        speed: 115,
+        power: 24,
+        heading: 195,
+        active_route_destination: "A-6 km 28, Las Rozas de Madrid",
+        active_route_traffic_minutes_delay: 2.0
+      },
+      charge_state: {
+        charging_state: "Disconnected",
+        charger_power: 0,
+        charger_voltage: 0,
+        charger_actual_current: 0
+      },
+      vehicle_state: {
+        locked: true,
+        is_user_present: true
+      },
+      climate_state: {
+        is_climate_on: true,
+        fan_status: 4,
+        driver_temp_setting: 20.5
+      }
+    });
+  } else if (type === "supercharge") {
+    updateLiveVehicleState({
+      drive_state: {
+        shift_state: "P",
+        speed: 0,
+        power: 0
+      },
+      charge_state: {
+        charging_state: "Charging",
+        charger_power: 150,
+        charger_voltage: 410,
+        charger_actual_current: 365,
+        charge_port_door_open: true,
+        charge_port_latch: "Engaged",
+        conn_charge_cable: "CCS Combo 2",
+        battery_heater_on: true,
+        fast_charger_present: true
+      },
+      vehicle_state: {
+        locked: false
+      }
+    });
+  } else if (type === "park") {
+    updateLiveVehicleState({
+      drive_state: {
+        shift_state: "P",
+        speed: 0,
+        power: 0
+      },
+      charge_state: {
+        charging_state: "Disconnected",
+        charger_power: 0,
+        charger_voltage: 0,
+        charger_actual_current: 0,
+        charge_port_door_open: false,
+        charge_port_latch: "Disengaged"
+      },
+      vehicle_state: {
+        locked: true,
+        sentry_mode: true,
+        df: 0, pf: 0, dr: 0, pr: 0, ft: 0, rt: 0
+      }
+    });
+  } else if (type === "preheat") {
+    updateLiveVehicleState({
+      climate_state: {
+        is_climate_on: true,
+        fan_status: 6,
+        driver_temp_setting: 22.0,
+        passenger_temp_setting: 22.0,
+        seat_heater_left: 3,
+        seat_heater_right: 3,
+        steering_wheel_heater: true,
+        defrost_mode: 1
+      }
+    });
+  }
+}
+
+function renderLiveVehicle(state) {
+  if (!state) return;
+
+  const charge = state.charge_state || {};
+  const climate = state.climate_state || {};
+  const drive = state.drive_state || {};
+  const vehicle = state.vehicle_state || {};
+  const fleet = state.fleet_telemetry || {};
+
+  // Header info
+  const carName = document.getElementById("live-car-name");
+  if (carName) carName.innerText = state.display_name || "Tesla Model 3 / Y Long Range";
+
+  const vinBadge = document.getElementById("live-vin-badge");
+  if (vinBadge) vinBadge.innerText = state.vin || "5YJ3E7EB8NF123456";
+
+  const fwBadge = document.getElementById("live-fw-badge");
+  if (fwBadge) fwBadge.innerText = `v${vehicle.car_version || "2024.26.8"}`;
+
+  const tsSpan = document.getElementById("live-timestamp");
+  if (tsSpan) tsSpan.innerText = formatDate(state.timestamp);
+
+  const odoSpan = document.getElementById("live-odo-km");
+  if (odoSpan) odoSpan.innerText = `${(vehicle.odometer || 32750).toLocaleString()} km`;
+
+  // PRND Transmission
+  const currentGear = (drive.shift_state || "P").toUpperCase();
+  ["p", "r", "n", "d"].forEach(g => {
+    const el = document.getElementById(`prnd-${g}`);
+    if (el) {
+      if (g.toUpperCase() === currentGear) {
+        el.classList.add("active");
+      } else {
+        el.classList.remove("active");
+      }
+    }
+  });
+
+  // Lock status
+  const iconLock = document.getElementById("icon-lock");
+  const txtLock = document.getElementById("txt-lock");
+  if (iconLock && txtLock) {
+    if (vehicle.locked) {
+      iconLock.innerText = "🔒";
+      txtLock.innerText = "Bloqueado";
+    } else {
+      iconLock.innerText = "🔓";
+      txtLock.innerText = "Desbloqueado";
+    }
+  }
+
+  // Sentry status
+  const iconSentry = document.getElementById("icon-sentry");
+  const txtSentry = document.getElementById("txt-sentry");
+  if (iconSentry && txtSentry) {
+    if (vehicle.sentry_mode) {
+      iconSentry.innerText = "👁️";
+      txtSentry.innerText = "Centinela ON";
+    } else {
+      iconSentry.innerText = "😴";
+      txtSentry.innerText = "Centinela OFF";
+    }
+  }
+
+  // User presence
+  const badgeUser = document.getElementById("badge-user-present");
+  if (badgeUser) {
+    if (vehicle.is_user_present) {
+      badgeUser.innerText = "👤 Conductor a bordo";
+      badgeUser.className = "badge badge-presence";
+    } else {
+      badgeUser.innerText = "🅿️ Vehículo desocupado";
+      badgeUser.className = "badge info";
+    }
+  }
+
+  // Cockpit Seats & Heat
+  const renderSeat = (btnId, level) => {
+    const btn = document.getElementById(btnId);
+    if (btn) {
+      btn.className = `seat-btn heat-${level || 0}`;
+    }
+  };
+  renderSeat("seat-fl", climate.seat_heater_left);
+  renderSeat("seat-fr", climate.seat_heater_right);
+  renderSeat("seat-rl", climate.seat_heater_rear_left);
+  renderSeat("seat-rc", climate.seat_heater_rear_center);
+  renderSeat("seat-rr", climate.seat_heater_rear_right);
+
+  // Steering wheel
+  const btnSteering = document.getElementById("btn-steering-heat");
+  if (btnSteering) {
+    if (climate.steering_wheel_heater) {
+      btnSteering.classList.add("active");
+    } else {
+      btnSteering.classList.remove("active");
+    }
+  }
+
+  // Mini Touchscreen
+  const tsGear = document.getElementById("ts-gear");
+  if (tsGear) tsGear.innerText = currentGear;
+  const tsSpeed = document.getElementById("ts-speed");
+  if (tsSpeed) tsSpeed.innerText = `${drive.speed || 0} km/h`;
+  const tsSoc = document.getElementById("ts-soc");
+  if (tsSoc) tsSoc.innerText = `${charge.battery_level || 78}%`;
+  const tsNav = document.getElementById("ts-nav-dest");
+  if (tsNav) tsNav.innerText = drive.active_route_destination || "P. Castellana 200";
+  const tsTempDriver = document.getElementById("ts-temp-driver");
+  if (tsTempDriver) tsTempDriver.innerText = `${(climate.driver_temp_setting || 21).toFixed(1)}°`;
+  const tsTempPass = document.getElementById("ts-temp-pass");
+  if (tsTempPass) tsTempPass.innerText = `${(climate.passenger_temp_setting || 21.5).toFixed(1)}°`;
+  const tsFanSpd = document.getElementById("ts-fan-spd");
+  if (tsFanSpd) tsFanSpd.innerText = climate.fan_status || 0;
+
+  // Climate Setpoints & Readings
+  const dispDriver = document.getElementById("disp-temp-driver");
+  if (dispDriver) dispDriver.innerText = `${(climate.driver_temp_setting || 21.0).toFixed(1)}°C`;
+  const dispPass = document.getElementById("disp-temp-pass");
+  if (dispPass) dispPass.innerText = `${(climate.passenger_temp_setting || 21.5).toFixed(1)}°C`;
+
+  const cabinIn = document.getElementById("live-temp-inside");
+  if (cabinIn) cabinIn.innerText = `${(climate.inside_temp || 21.5).toFixed(1)}°C`;
+  const cabinOut = document.getElementById("live-temp-outside");
+  if (cabinOut) cabinOut.innerText = `${(climate.outside_temp || 17.0).toFixed(1)}°C`;
+
+  const fanLabel = document.getElementById("live-fan-label");
+  if (fanLabel) fanLabel.innerText = `Nivel ${climate.fan_status || 0} / 7`;
+
+  // Airflow Animation
+  const airflow = document.getElementById("airflow-animation");
+  if (airflow) {
+    if (climate.is_climate_on && (climate.fan_status || 0) > 0) {
+      airflow.style.display = "flex";
+    } else {
+      airflow.style.display = "none";
+    }
+  }
+
+  // Fan speed buttons highlight
+  document.querySelectorAll(".fan-spd-btn").forEach(btn => {
+    const spd = parseInt(btn.getAttribute("data-spd") || "0", 10);
+    if (spd === (climate.fan_status || 0)) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+
+  const txtClimate = document.getElementById("txt-climate-state");
+  const badgeClimate = document.getElementById("badge-climate-power");
+  if (txtClimate && badgeClimate) {
+    if (climate.is_climate_on) {
+      txtClimate.innerText = "Encendido";
+      badgeClimate.innerText = "A/C ON";
+      badgeClimate.className = "badge success";
+    } else {
+      txtClimate.innerText = "Apagado";
+      badgeClimate.innerText = "A/C OFF";
+      badgeClimate.className = "badge";
+    }
+  }
+
+  // Keeper Mode buttons
+  const activeMode = (climate.climate_keeper_mode || "off").toLowerCase();
+  document.querySelectorAll(".keeper-btn").forEach(btn => {
+    const mode = btn.getAttribute("data-mode") || "off";
+    if (mode === activeMode) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+  const badgeKeeper = document.getElementById("badge-keeper-mode");
+  if (badgeKeeper) {
+    const modeLabels = { off: "Modo: Normal", keep: "Modo: Mantener", dog: "Modo: Perro 🐶", camp: "Modo: Acampada ⛺" };
+    badgeKeeper.innerText = modeLabels[activeMode] || "Modo: Normal";
+  }
+
+  // Chassis Closures (Frunk, Trunk, Doors)
+  const renderClosure = (btnId, badgeId, isOpen, labelClosed, labelOpen) => {
+    const btn = document.getElementById(btnId);
+    const badge = document.getElementById(badgeId);
+    if (btn && badge) {
+      if (isOpen) {
+        btn.classList.add("open");
+        badge.innerText = labelOpen || "Abierto";
+      } else {
+        btn.classList.remove("open");
+        badge.innerText = labelClosed || "Cerrado";
+      }
+    }
+  };
+  renderClosure("btn-toggle-frunk", "badge-frunk", (vehicle.ft || 0) > 0, "Cerrado", "Abierto");
+  renderClosure("btn-toggle-trunk", "badge-trunk", (vehicle.rt || 0) > 0, "Cerrado", "Abierto");
+  renderClosure("btn-toggle-df", "badge-df", (vehicle.df || 0) > 0, "Cerrada", "Abierta");
+  renderClosure("btn-toggle-pf", "badge-pf", (vehicle.pf || 0) > 0, "Cerrada", "Abierta");
+  renderClosure("btn-toggle-dr", "badge-dr", (vehicle.dr || 0) > 0, "Cerrada", "Abierta");
+  renderClosure("btn-toggle-pr", "badge-pr", (vehicle.pr || 0) > 0, "Cerrada", "Abierta");
+  renderClosure("btn-toggle-charge-port", "badge-charge-port", charge.charge_port_door_open, "Cerrado", "Abierto");
+
+  // TPMS Pressures
+  const setTpms = (valId, barVal) => {
+    const el = document.getElementById(valId);
+    if (el && barVal !== undefined && barVal !== null) {
+      el.innerText = `${Number(barVal).toFixed(1)} Bar`;
+    }
+  };
+  setTpms("tpms-fl-val", vehicle.tpms_pressure_fl || 2.9);
+  setTpms("tpms-fr-val", vehicle.tpms_pressure_fr || 2.9);
+  setTpms("tpms-rl-val", vehicle.tpms_pressure_rl || 2.8);
+  setTpms("tpms-rr-val", vehicle.tpms_pressure_rr || 2.8);
+
+  // BMS & High-Voltage Battery
+  const bmsSoc = document.getElementById("live-bms-soc");
+  if (bmsSoc) bmsSoc.innerText = `${charge.battery_level || 78}%`;
+  const usableSoc = document.getElementById("live-usable-soc");
+  if (usableSoc) usableSoc.innerText = `${charge.usable_battery_level || 77}%`;
+  const chargeLimit = document.getElementById("live-charge-limit");
+  if (chargeLimit) chargeLimit.innerText = `${charge.charge_limit_soc || 80}%`;
+  const bmsRange = document.getElementById("live-bms-range");
+  if (bmsRange) bmsRange.innerText = `${(charge.battery_range || 395.2).toFixed(1)} km`;
+
+  const socBar = document.getElementById("live-soc-bar");
+  if (socBar) socBar.style.width = `${charge.battery_level || 78}%`;
+  const limitMarker = document.getElementById("live-limit-marker");
+  if (limitMarker) limitMarker.style.left = `${charge.charge_limit_soc || 80}%`;
+
+  const chgBadge = document.getElementById("live-charge-state-badge");
+  if (chgBadge) {
+    chgBadge.innerText = charge.charging_state || "Standby";
+    if (charge.charging_state === "Charging") {
+      chgBadge.className = "badge warning";
+    } else {
+      chgBadge.className = "badge success";
+    }
+  }
+
+  const vEl = document.getElementById("live-charger-voltage");
+  if (vEl) vEl.innerText = `${charge.charger_voltage || 0} V`;
+  const aEl = document.getElementById("live-charger-current");
+  if (aEl) aEl.innerText = `${charge.charger_actual_current || 0} A`;
+  const pEl = document.getElementById("live-charger-power");
+  if (pEl) pEl.innerText = `${charge.charger_power || 0} kW`;
+  const eEl = document.getElementById("live-energy-added");
+  if (eEl) eEl.innerText = `${(charge.charge_energy_added || 18.5).toFixed(1)} kWh`;
+  const tEl = document.getElementById("live-time-to-full");
+  if (tEl) {
+    const mins = Math.round((charge.time_to_full_charge || 0) * 60);
+    tEl.innerText = mins > 0 ? `${mins} min` : "Completo";
+  }
+  const hEl = document.getElementById("live-battery-heater");
+  if (hEl) hEl.innerText = charge.battery_heater_on ? "🔥 Precalentando" : "Inactivo";
+
+  // Dynamics & Route
+  const dynSpeed = document.getElementById("live-dyn-speed");
+  if (dynSpeed) dynSpeed.innerHTML = `${drive.speed || 0} <small>km/h</small>`;
+  const dynPower = document.getElementById("live-dyn-power");
+  if (dynPower) {
+    const kw = drive.power || 0;
+    dynPower.innerText = `${kw > 0 ? "+" : ""}${kw.toFixed(1)} kW`;
+  }
+  const compassNeedle = document.getElementById("compass-needle");
+  if (compassNeedle) {
+    compassNeedle.style.transform = `rotate(${drive.heading || 0}deg)`;
+  }
+  const dynHeading = document.getElementById("live-dyn-heading");
+  if (dynHeading) dynHeading.innerText = `${drive.heading || 0}°`;
+
+  const routeDest = document.getElementById("live-route-dest");
+  if (routeDest) routeDest.innerText = drive.active_route_destination || "Sin destino activo";
+  const routeSoc = document.getElementById("live-route-arrival-soc");
+  if (routeSoc) routeSoc.innerText = `${drive.active_route_energy_at_arrival || 64}%`;
+  const routeTraffic = document.getElementById("live-route-traffic");
+  if (routeTraffic) routeTraffic.innerText = `+${(drive.active_route_traffic_minutes_delay || 0).toFixed(1)} min`;
+
+  const gpsCoords = document.getElementById("live-gps-coords");
+  const mapLink = document.getElementById("live-map-link");
+  if (gpsCoords && drive.latitude && drive.longitude) {
+    const lat = Number(drive.latitude).toFixed(6);
+    const lon = Number(drive.longitude).toFixed(6);
+    gpsCoords.innerText = `${lat}, ${lon}`;
+    if (mapLink) {
+      mapLink.href = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`;
+    }
+  }
+
+  // Fleet & Cell Diagnostics
+  const cellDelta = document.getElementById("live-cell-delta");
+  if (cellDelta) cellDelta.innerText = `${(fleet.cell_delta_mv || 4.0).toFixed(1)} mV`;
+  const cellV = document.getElementById("live-cell-voltages");
+  if (cellV) cellV.innerText = `${fleet.brick_voltage_max || 4.152} V / ${fleet.brick_voltage_min || 4.148} V`;
+  const invT = document.getElementById("live-inverter-temps");
+  if (invT) invT.innerText = `TR: ${fleet.di_inverter_tr || 34.2}°C / TF: ${fleet.di_inverter_tf || 31.8}°C`;
+  const brakeP = document.getElementById("live-brake-pedal");
+  if (brakeP) brakeP.innerText = `${(fleet.brake_pedal_pos || 0).toFixed(1)}%`;
+  const acE = document.getElementById("live-ac-energy");
+  if (acE) acE.innerText = `${(fleet.ac_charging_energy_in || 1450.4).toLocaleString()} kWh`;
+  const dcE = document.getElementById("live-dc-energy");
+  if (dcE) dcE.innerText = `${(fleet.dc_charging_energy_in || 420.8).toLocaleString()} kWh`;
 }

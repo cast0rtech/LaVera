@@ -1118,14 +1118,6 @@ function initLiveVehicle() {
     });
   }
 
-  // Simulator buttons
-  const simButtons = document.querySelectorAll(".sim-btn");
-  simButtons.forEach(btn => {
-    btn.addEventListener("click", () => {
-      const simType = btn.getAttribute("data-sim");
-      handleSimulation(simType);
-    });
-  });
 }
 
 async function loadLiveVehicle(showLoading = true) {
@@ -1160,93 +1152,6 @@ async function updateLiveVehicleState(partialState) {
     }
   } catch (err) {
     console.error("Error updating live vehicle state:", err);
-  }
-}
-
-function handleSimulation(type) {
-  if (!liveVehicleState) return;
-  if (type === "drive") {
-    updateLiveVehicleState({
-      drive_state: {
-        shift_state: "D",
-        speed: 115,
-        power: 24,
-        heading: 195,
-        active_route_destination: "A-6 km 28, Las Rozas de Madrid",
-        active_route_traffic_minutes_delay: 2.0
-      },
-      charge_state: {
-        charging_state: "Disconnected",
-        charger_power: 0,
-        charger_voltage: 0,
-        charger_actual_current: 0
-      },
-      vehicle_state: {
-        locked: true,
-        is_user_present: true
-      },
-      climate_state: {
-        is_climate_on: true,
-        fan_status: 4,
-        driver_temp_setting: 20.5
-      }
-    });
-  } else if (type === "supercharge") {
-    updateLiveVehicleState({
-      drive_state: {
-        shift_state: "P",
-        speed: 0,
-        power: 0
-      },
-      charge_state: {
-        charging_state: "Charging",
-        charger_power: 150,
-        charger_voltage: 410,
-        charger_actual_current: 365,
-        charge_port_door_open: true,
-        charge_port_latch: "Engaged",
-        conn_charge_cable: "CCS Combo 2",
-        battery_heater_on: true,
-        fast_charger_present: true
-      },
-      vehicle_state: {
-        locked: false
-      }
-    });
-  } else if (type === "park") {
-    updateLiveVehicleState({
-      drive_state: {
-        shift_state: "P",
-        speed: 0,
-        power: 0
-      },
-      charge_state: {
-        charging_state: "Disconnected",
-        charger_power: 0,
-        charger_voltage: 0,
-        charger_actual_current: 0,
-        charge_port_door_open: false,
-        charge_port_latch: "Disengaged"
-      },
-      vehicle_state: {
-        locked: true,
-        sentry_mode: true,
-        df: 0, pf: 0, dr: 0, pr: 0, ft: 0, rt: 0
-      }
-    });
-  } else if (type === "preheat") {
-    updateLiveVehicleState({
-      climate_state: {
-        is_climate_on: true,
-        fan_status: 6,
-        driver_temp_setting: 22.0,
-        passenger_temp_setting: 22.0,
-        seat_heater_left: 3,
-        seat_heater_right: 3,
-        steering_wheel_heater: true,
-        defrost_mode: 1
-      }
-    });
   }
 }
 

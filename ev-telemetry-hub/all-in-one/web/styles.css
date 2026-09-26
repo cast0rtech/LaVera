@@ -1792,53 +1792,6 @@ body {
   color: var(--accent-emerald) !important;
 }
 
-/* Simulator Bar */
-.simulator-toolbar-card {
-  padding: 16px 20px;
-}
-
-.sim-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 14px;
-}
-
-.sim-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.sim-title span {
-  font-size: 1.8rem;
-}
-
-.sim-sub {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-.sim-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.sim-btn {
-  font-size: 0.78rem;
-  font-weight: 600;
-  border-color: rgba(255, 255, 255, 0.15);
-  transition: all 0.2s ease;
-}
-
-.sim-btn:hover {
-  background: var(--accent-cyan);
-  color: #040810;
-  border-color: var(--accent-cyan);
-  box-shadow: 0 0 12px rgba(0, 210, 255, 0.4);
-}
 
 /* ========================================================
    PANORAMIC TESLA COCKPIT INTERIOR GRAPHIC

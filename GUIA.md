@@ -3,7 +3,7 @@
 
 🌐 **Idioma / Language:** [English (GUIDE.md)](GUIDE.md) | **Español**
 
-Esta guía describe detalladamente la puesta en marcha, integración multimarca de vehículos, ingesta de telemetría en series temporales, exportación de rutas geográficas y construcción de dashboards analíticos utilizando el stack Docker de **LaVera**.
+Esta guía describe detalladamente la puesta en marcha, integración multimarca de vehículos, ingesta de telemetría en series temporales, diccionario completo de métricas en tiempo real, exportación de rutas geográficas y construcción de dashboards analíticos utilizando el stack Docker de **LaVera**.
 
 ---
 
@@ -13,13 +13,14 @@ Esta guía describe detalladamente la puesta en marcha, integración multimarca 
 3. [Instalación y Despliegue del Stack](#3-instalación-y-despliegue-del-stack)
 4. [Paso 1: Extracción de Telemetría con Home Assistant](#4-paso-1-extracción-de-telemetría-con-home-assistant)
 5. [Paso 2: Configuración de InfluxDB 2.7 (Buckets y Tokens)](#5-paso-2-configuración-de-influxdb-27-buckets-y-tokens)
-6. [Paso 3: Ingesta de Telemetría (Directa o vía Node-RED)](#6-paso-3-ingesta-de-telemetría-directa-o-vía-node-red)
-7. [Paso 4: Pasarela Híbrida en Tiempo Real (Tesla Fleet & Tessie)](#7-paso-4-pasarela-híbrida-en-tiempo-real-tesla-fleet--tessie)
-8. [Paso 5: Rutas y Exportación Geográfica (GPX, KML y Google Maps)](#8-paso-5-rutas-y-exportación-geográfica-gpx-kml-y-google-maps)
-9. [Paso 6: Dashboards y Métricas en Grafana](#9-paso-6-dashboards-y-métricas-en-grafana)
-10. [Paso 7: Mitigación del Vampire Drain (Consumo Parásito)](#10-paso-7-mitigación-del-vampire-drain-consumo-parásito)
-11. [Paso 8: Mantenimiento, Copias de Seguridad y Seguridad SSL](#11-paso-8-mantenimiento-copias-de-seguridad-y-seguridad-ssl)
-12. [Solución de Problemas Frecuentes (FAQ / Troubleshooting)](#12-solución-de-problemas-frecuentes-faq--troubleshooting)
+6. [Paso 3: Diccionario de Datos de Telemetría en Tiempo Real (Tags vs Fields)](#6-paso-3-diccionario-de-datos-de-telemetría-en-tiempo-real-tags-vs-fields)
+7. [Paso 4: Ingesta de Telemetría (Directa o vía Node-RED)](#7-paso-4-ingesta-de-telemetría-directa-o-vía-node-red)
+8. [Paso 5: Pasarela Híbrida en Tiempo Real (Tesla Fleet & Tessie)](#8-paso-5-pasarela-híbrida-en-tiempo-real-tesla-fleet--tessie)
+9. [Paso 6: Rutas y Exportación Geográfica (GPX, KML y Google Maps)](#9-paso-6-rutas-y-exportación-geográfica-gpx-kml-y-google-maps)
+10. [Paso 7: Dashboards y Métricas en Grafana](#10-paso-7-dashboards-y-métricas-en-grafana)
+11. [Paso 8: Mitigación del Vampire Drain (Consumo Parásito)](#11-paso-8-mitigación-del-vampire-drain-consumo-parásito)
+12. [Paso 9: Mantenimiento, Copias de Seguridad y Seguridad SSL](#12-paso-9-mantenimiento-copias-de-seguridad-y-seguridad-ssl)
+13. [Solución de Problemas Frecuentes (FAQ / Troubleshooting)](#13-solución-de-problemas-frecuentes-faq--troubleshooting)
 
 ---
 
@@ -110,26 +111,19 @@ Accede a Home Assistant en: **`http://<IP-DE-TU-SERVIDOR>:8123`** y completa la 
 ### Instalación de Integraciones según la Marca de tu Vehículo
 
 #### 🚗 Opción A: Tesla
-1. **Integración Oficial (Tesla Fleet API):**
-   - Requiere cuenta en el portal de desarrolladores de Tesla o usar integraciones comunitarias compatibles con Fleet API.
-2. **Tesla Custom Integration (vía HACS):**
-   - Permite consultar SoC, ubicación, estado de las puertas, presión de neumáticos, temperatura interna/externa y estado de carga.
-   - **Ajuste crítico de descanso:** En las opciones de la integración, activa el parámetro **"Polling only when awake"** y configura un intervalo de descanso (*Sleep interval*) de al menos 15-21 minutos para permitir que el vehículo entre en modo *Deep Sleep*.
+1. **Integración Oficial (Tesla Fleet API):** Requiere cuenta en el portal de desarrolladores de Tesla o usar integraciones comunitarias compatibles con Fleet API.
+2. **Tesla Custom Integration (vía HACS):** Permite consultar SoC, ubicación, estado de las puertas, presión de neumáticos, temperatura interna/externa y estado de carga. Configura un intervalo de descanso (*Sleep interval*) de al menos 15-21 minutos.
 
 #### 🚗 Opción B: Grupo VAG (Volkswagen ID, Cupra, Škoda, Audi)
 1. Instala la integración **Volkswagen We Connect ID** o **MyCupra / Skoda Connect** (disponibles en HACS).
-2. Proporciona tus credenciales de la aplicación móvil oficial de la marca.
-3. Entidades expuestas: Nivel de batería, autonomía restante en km, estado del conector de carga, velocidad de carga (km/h y kW).
+2. Entidades expuestas: Nivel de batería, autonomía restante en km, estado del conector de carga, velocidad de carga (km/h y kW).
 
 #### 🚗 Opción C: Renault / Dacia (Zoe, Megane E-Tech, Spring, 5 E-Tech)
 1. Instala la integración **Renault** (integrada de forma nativa en el núcleo de Home Assistant).
 2. Introduce tus credenciales de *My Renault* y selecciona tu vehículo por VIN.
-3. Métricas disponibles: SoC, autonomía estimada, estado del cable, estado del cargador y control de climatización remota.
 
 #### 🚗 Opción D: Dongle OBD-II / BLE y Lectura Directa de Celdas
-- Si tu vehículo no cuenta con API en la nube o deseas leer datos directos de alta frecuencia (voltaje celda por celda, temperatura del pack en tiempo real):
-  - Utiliza un dongle OBD-II Bluetooth Low Energy (BLE) o WiFi (ej. vLinker MC+, OBDLink CX).
-  - Mediante apps como **Torque Pro** o **ABRP (A Better Routeplanner)**, puedes reenviar telemetría por Webhook a Home Assistant o Node-RED.
+- Utiliza un dongle OBD-II Bluetooth Low Energy (BLE) o WiFi (ej. vLinker MC+, OBDLink CX) para reenviar telemetría por Webhook a Home Assistant o Node-RED.
 
 ---
 
@@ -147,7 +141,115 @@ Accede a Home Assistant en: **`http://<IP-DE-TU-SERVIDOR>:8123`** y completa la 
 
 ---
 
-## 6. Paso 3: Ingesta de Telemetría (Directa o vía Node-RED)
+## 6. Paso 3: Diccionario de Datos de Telemetría en Tiempo Real (Tags vs Fields)
+
+Para estructurar de manera óptima la base de datos de series temporales (InfluxDB v2 / TimescaleDB) y habilitar consultas de alto rendimiento en Grafana, LaVera aplica una separación estricta:
+
+> [!TIP]
+> **Regla de Diseño para Series Temporales:**
+> - **Tags (Índices):** Valores de tipo `string` y `boolean` de baja cardinalidad (ej. `shift_state`, `charging_state`, `locked`, `sentry_mode`, `is_climate_on`). Se almacenan en el índice invertido de InfluxDB para filtrado instantáneo por facetas y agrupaciones (`group by`).
+> - **Fields (Valores de Series Temporales):** Todos los valores numéricos `int` o `float` (ej. `power`, `speed`, `odometer`, `inside_temp`, `charger_voltage`). Permiten generar gráficos continuos de líneas, agregaciones temporales (`mean`, `max`, `min`), derivadas de velocidad e integrales de consumo energético en el tiempo.
+
+### 1. 🔋 `charge_state` (Energía y Batería)
+Engloba todo lo relacionado con el Battery Management System (BMS), recargas y autonomías:
+
+| Parámetro | Tipo | Clasificación | Unidad | Descripción |
+| :--- | :--- | :--- | :--- | :--- |
+| `battery_level` | `int` | **Field** | `%` | Porcentaje actual de carga de la batería (SoC reportado). |
+| `usable_battery_level` | `int` | **Field** | `%` | Porcentaje real utilizable (descuenta la energía bloqueada por batería fría). |
+| `charge_limit_soc` | `int` | **Field** | `%` | Límite de carga configurado en la pantalla del coche (ej. 80% o 100%). |
+| `battery_range` | `float` | **Field** | `km` / `mi` | Autonomía estimada basada en el estándar oficial del vehículo. |
+| `charging_state` | `string` | **Tag** | — | Estado de carga (`Disconnected`, `Charging`, `Complete`, `Stopped`, `NoPower`). |
+| `charge_port_door_open` | `boolean` | **Tag** | — | Tapa del puerto de carga abierta (`true` / `false`). |
+| `charge_port_latch` | `string` | **Tag** | — | Bloqueo físico de seguridad del cable (`Engaged`, `Disengaged`). |
+| `conn_charge_cable` | `string` | **Tag** | — | Tipo de conector o cable acoplado (`SAE`, `IEC`, `CCS`, `<none>`). |
+| `charger_voltage` | `int` | **Field** | `V` | Voltaje de entrada de la red eléctrica. |
+| `charger_actual_current` | `int` | **Field** | `A` | Amperaje real que está fluyendo en este momento hacia el vehículo. |
+| `charge_current_request` | `int` | **Field** | `A` | Amperaje solicitado por el usuario o centralita. |
+| `charge_current_request_max` | `int` | **Field** | `A` | Amperaje máximo permitido por la instalación eléctrica. |
+| `charger_power` | `int` | **Field** | `kW` | Potencia instantánea de carga entregada. |
+| `charge_energy_added` | `float` | **Field** | `kWh` | Total de energía inyectada en la sesión de carga actual. |
+| `time_to_full_charge` | `float` | **Field** | `h` | Horas estimadas restantes para alcanzar el límite configurado. |
+| `battery_heater_on` | `boolean` | **Tag** | — | Preacondicionamiento térmico de la batería en curso (`true` / `false`). |
+| `fast_charger_present` | `boolean` | **Tag** | — | Conexión activa a una estación de carga en corriente continua (DC / Supercharger). |
+
+---
+
+### 2. 🌡️ `climate_state` (Climatización y Sensores)
+Monitoriza temperaturas y estado del HVAC del habitáculo:
+
+| Parámetro | Tipo | Clasificación | Unidad | Descripción |
+| :--- | :--- | :--- | :--- | :--- |
+| `inside_temp` | `float` | **Field** | `°C` | Temperatura ambiente medida en el interior de la cabina. |
+| `outside_temp` | `float` | **Field** | `°C` | Temperatura exterior medida por el termómetro frontal del coche. |
+| `driver_temp_setting` | `float` | **Field** | `°C` | Temperatura consigna configurada para el conductor. |
+| `passenger_temp_setting` | `float` | **Field** | `°C` | Temperatura consigna configurada para el acompañante. |
+| `is_climate_on` | `boolean` | **Tag** | — | Sistema global de climatización en funcionamiento (`true` / `false`). |
+| `is_auto_conditioning_on` | `boolean` | **Tag** | — | Climatizador operando en modo automático (`true` / `false`). |
+| `fan_status` | `int` | **Field** | `0 - 7` | Velocidad actual del ventilador de la cabina. |
+| `climate_keeper_mode` | `string` | **Tag** | — | Modo de mantenimiento del clima (`off`, `keep`, `dog`, `camp`). |
+| `defrost_mode` | `int` | **Field** | `0 - 2` | Nivel de desempañado/descongelación activo (0=off, 1=normal, 2=max). |
+| `seat_heater_left` / `right` | `int` | **Field** | `0 - 3` | Nivel de calefacción en asientos delanteros. |
+| `seat_heater_rear_left` / etc. | `int` | **Field** | `0 - 3` | Nivel de calefacción en asientos traseros. |
+| `steering_wheel_heater` | `boolean` | **Tag** | — | Calefacción del volante encendida (`true` / `false`). |
+| `cabin_overheat_protection` | `string` | **Tag** | — | Protección contra sobrecalentamiento del habitáculo (`On`, `Off`, `FanOnly`). |
+
+---
+
+### 3. 🛣️ `drive_state` (Dinámica y Geolocalización)
+Datos posicionales y telemetría de movimiento en tiempo real:
+
+| Parámetro | Tipo | Clasificación | Unidad | Descripción |
+| :--- | :--- | :--- | :--- | :--- |
+| `shift_state` | `string` | **Tag** | — | Posición de la transmisión (`P`, `R`, `N`, `D`). Nulo si el coche duerme. |
+| `speed` | `int` | **Field** | `km/h` | Velocidad instantánea de desplazamiento. |
+| `power` | `int` | **Field** | `kW` | Potencia instantánea: positivo al acelerar (consumo), negativo al frenar (regeneración). |
+| `latitude` | `float` | **Field** | `deg` | Coordenada GPS de latitud en grados decimales (WGS84). |
+| `longitude` | `float` | **Field** | `deg` | Coordenada GPS de longitud en grados decimales (WGS84). |
+| `heading` | `int` | **Field** | `0 - 359` | Rumbo de dirección en grados respecto al norte. |
+| `gps_as_of` | `int` | **Field** | `UNIX s` | Marca de tiempo UNIX de la última coordenada válida recibida. |
+| `active_route_destination` | `string` | **Tag** | — | Nombre del destino si hay navegación activa en el mapa. |
+| `active_route_energy_at_arrival` | `int` | **Field** | `%` | Porcentaje estimado de SoC al llegar al destino. |
+| `active_route_traffic_minutes_delay` | `float` | **Field** | `min` | Retraso estimado debido al tráfico en la ruta activa. |
+
+---
+
+### 4. 🚘 `vehicle_state` (Hardware, Carrocería y Seguridad)
+Sensores físicos, integridad del habitáculo e información estática del vehículo:
+
+| Parámetro | Tipo | Clasificación | Unidad | Descripción |
+| :--- | :--- | :--- | :--- | :--- |
+| `odometer` | `float` | **Field** | `km` | Kilometraje acumulado histórico total. |
+| `locked` | `boolean` | **Tag** | — | Estado de los cierres centralizados (cerrado = `true`, abierto = `false`). |
+| `sentry_mode` | `boolean` | **Tag** | — | Vigilancia de seguridad activa del Modo Centinela (`true` / `false`). |
+| `is_user_present` | `boolean` | **Tag** | — | Detección de presencia física en el asiento del conductor (`true` / `false`). |
+| `df`, `pf`, `dr`, `pr` | `int` | **Field** | `0 / 1` | Apertura física de puertas (Driver Front, Passenger Front, Traseras). |
+| `fd_window`, `fp_window`, etc. | `int` | **Field** | `0 / 1` | Estado de apertura de ventanillas individuales. |
+| `ft` / `rt` | `int` | **Field** | `0 / 1` | Apertura de maletero delantero (*frunk*) y trasero (*trunk*). |
+| `tpms_pressure_fl` / `fr` / `rl` / `rr` | `float` | **Field** | `Bar` | Presión individual de cada neumático (TPMS). |
+| `center_display_state` | `int` | **Field** | `0 - 2` | Estado de la pantalla táctil principal (0=off, 2=on). |
+| `car_version` | `string` | **Tag** | — | Versión de software embarcada (ej. `2024.14.9`). |
+| `software_update.status` | `string` | **Tag** | — | Estado del ciclo de actualización OTA (`available`, `installing`, `""`). |
+
+---
+
+### 5. 📡 Fleet Telemetry / Diagnósticos Avanzados
+Parámetros recogidos del flujo de alta frecuencia de Tesla Fleet Telemetry (WebSocket/MQTT) o diagnósticos de Tessie:
+
+| Parámetro | Tipo | Clasificación | Unidad | Descripción |
+| :--- | :--- | :--- | :--- | :--- |
+| `BmsFullchargecomplete` | `boolean` | **Tag** | — | Indica si el BMS completó el 100% de la carga para balanceo y calibración de celdas. |
+| `BrakePedalPos` | `float` | **Field** | `%` | Presión física ejercida en el cilindro del pedal de freno en tiempo real. |
+| `ACChargingEnergyIn` | `float` | **Field** | `kWh` | Cómputo exacto de energía AC recibida a nivel de batería desde el cargador. |
+| `DCChargingEnergyIn` | `float` | **Field** | `kWh` | Cómputo exacto de energía DC recibida a nivel de batería (carga rápida). |
+| `BrickVoltageMax` | `float` | **Field** | `V` | Tensión máxima detectada en los clústers de celdas internas del pack. |
+| `BrickVoltageMin` | `float` | **Field** | `V` | Tensión mínima detectada en los clústers (diferencial clave para evaluar desbalanceo). |
+| `DiInverterTR` | `float` | **Field** | `°C` | Temperatura del inversor del motor de tracción trasero. |
+| `DiInverterTF` | `float` | **Field** | `°C` | Temperatura del inversor del motor de tracción delantero. |
+
+---
+
+## 7. Paso 4: Ingesta de Telemetría (Directa o vía Node-RED)
 
 ### Ingesta Directa de Home Assistant a InfluxDB
 Agrega el siguiente bloque a tu archivo `configuration.yaml` de Home Assistant:
@@ -182,7 +284,7 @@ influxdb:
 
 ---
 
-## 7. Paso 4: Pasarela Híbrida en Tiempo Real (Tesla Fleet & Tessie)
+## 8. Paso 5: Pasarela Híbrida en Tiempo Real (Tesla Fleet & Tessie)
 
 LaVera incluye un módulo independiente en [`ev-telemetry-hub/gateway/`](ev-telemetry-hub/gateway/) diseñado para ingesta continua de alta frecuencia:
 
@@ -201,7 +303,7 @@ LaVera incluye un módulo independiente en [`ev-telemetry-hub/gateway/`](ev-tele
 
 ---
 
-## 8. Paso 5: Rutas y Exportación Geográfica (GPX, KML y Google Maps)
+## 9. Paso 6: Rutas y Exportación Geográfica (GPX, KML y Google Maps)
 
 Cada trayecto registrado o importado en LaVera almacena sus coordenadas de inicio y fin (`start_latitude`, `start_longitude`, `end_latitude`, `end_longitude`):
 
@@ -221,7 +323,7 @@ Cada trayecto registrado o importado en LaVera almacena sus coordenadas de inici
 
 ---
 
-## 9. Paso 6: Dashboards y Métricas en Grafana
+## 10. Paso 7: Dashboards y Métricas en Grafana
 
 1. Accede a Grafana en: **`http://<IP-DE-TU-SERVIDOR>:3000`**.
 2. Inicia sesión con el usuario `admin` y la contraseña de `.env`.
@@ -249,7 +351,7 @@ from(bucket: "ev_telemetry")
 
 ---
 
-## 10. Paso 7: Mitigación del Vampire Drain (Consumo Parásito)
+## 11. Paso 8: Mitigación del Vampire Drain (Consumo Parásito)
 
 ### Reglas de Oro contra el Vampire Drain:
 1. **Dormir es sagrado:** Consulta la API del coche únicamente para leer los datos que la nube ya tiene almacenados (*Cached status*), sin forzar un comando de despertar (*Wake Up*).
@@ -260,7 +362,7 @@ from(bucket: "ev_telemetry")
 
 ---
 
-## 11. Paso 8: Mantenimiento, Copias de Seguridad y Seguridad SSL
+## 12. Paso 9: Mantenimiento, Copias de Seguridad y Seguridad SSL
 
 ### Copias de Seguridad de los Datos
 Todos los datos persistentes residen en el directorio `ev-telemetry-hub/data/`. Para crear un respaldo integral:
@@ -284,7 +386,7 @@ docker exec -it telemetry_influxdb influx backup /var/lib/influxdb2/backup -t "T
 
 ---
 
-## 12. Solución de Problemas Frecuentes (FAQ / Troubleshooting)
+## 13. Solución de Problemas Frecuentes (FAQ / Troubleshooting)
 
 ### ❓ InfluxDB responde con "401 Unauthorized"
 - Verifica que el token utilizado tenga permisos de lectura y escritura en el bucket `ev_telemetry` de la organización `lavera`.

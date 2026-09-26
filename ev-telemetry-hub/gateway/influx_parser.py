@@ -116,25 +116,38 @@ class TelemetryToInfluxParser:
             tags["shift_state"] = shift
             tags["sentry_mode"] = "true" if vehicle_st.get("sentry_mode") else "false"
             tags["climate_state"] = "on" if climate_st.get("is_climate_on") else "off"
+            tags["locked"] = "true" if vehicle_st.get("locked") else "false"
+            tags["is_user_present"] = "true" if vehicle_st.get("is_user_present") else "false"
+            tags["charge_port_door_open"] = "true" if charge_st.get("charge_port_door_open") else "false"
+            tags["charge_port_latch"] = str(charge_st.get("charge_port_latch") or "Disengaged")
+            tags["conn_charge_cable"] = str(charge_st.get("conn_charge_cable") or "<none>")
+            tags["battery_heater_on"] = "true" if charge_st.get("battery_heater_on") else "false"
+            tags["fast_charger_present"] = "true" if charge_st.get("fast_charger_present") else "false"
+            tags["is_auto_conditioning_on"] = "true" if climate_st.get("is_auto_conditioning_on") else "false"
+            tags["climate_keeper_mode"] = str(climate_st.get("climate_keeper_mode") or "off")
+            tags["steering_wheel_heater"] = "true" if climate_st.get("steering_wheel_heater") else "false"
+            tags["cabin_overheat_protection"] = str(climate_st.get("cabin_overheat_protection") or "off")
+            if vehicle_st.get("car_version"):
+                tags["car_version"] = str(vehicle_st.get("car_version"))
+            sw_update = vehicle_st.get("software_update") if isinstance(vehicle_st.get("software_update"), dict) else {}
+            if sw_update.get("status"):
+                tags["software_update_status"] = str(sw_update.get("status"))
 
-            # Power & Energy fields
+            # Fleet Diagnostics Tags
+            if "BmsFullchargecomplete" in raw:
+                tags["bms_full_charge_complete"] = "true" if raw.get("BmsFullchargecomplete") else "false"
+
+            # 1. 🔋 charge_state Fields
             fields["soc_pct"] = round(safe_float(charge_st.get("battery_level")), 2)
             fields["usable_soc_pct"] = round(safe_float(charge_st.get("usable_battery_level") or charge_st.get("battery_level")), 2)
+            if charge_st.get("charge_limit_soc") is not None:
+                fields["charge_limit_soc"] = int(safe_float(charge_st.get("charge_limit_soc")))
 
             raw_range = safe_float(charge_st.get("battery_range"))
             fields["battery_range_km"] = round(miles_to_km(raw_range), 2)
 
             chg_pwr = safe_float(charge_st.get("charger_power"))
             fields["charger_power_kw"] = round(chg_pwr, 2)
-
-            # Instantaneous power in drive (positive = traction, negative = regen)
-            pwr_kw = safe_float(drive_st.get("power"))
-            if pwr_kw != 0:
-                fields["power_kw"] = round(pwr_kw, 2)
-            elif chg_pwr > 0:
-                fields["power_kw"] = round(chg_pwr, 2)
-            else:
-                fields["power_kw"] = 0.0
 
             fields["charge_rate_kmh"] = round(miles_to_km(safe_float(charge_st.get("charge_rate"))), 1)
             fields["energy_added_kwh"] = round(safe_float(charge_st.get("charge_energy_added")), 2)
@@ -148,10 +161,37 @@ class TelemetryToInfluxParser:
             if raw_current > 0:
                 fields["charger_current_a"] = round(raw_current, 1)
 
-            # Vehicle Dynamics & Odometer
+            if charge_st.get("charge_current_request") is not None:
+                fields["charge_current_request_a"] = int(safe_float(charge_st.get("charge_current_request")))
+            if charge_st.get("charge_current_request_max") is not None:
+                fields["charge_current_request_max_a"] = int(safe_float(charge_st.get("charge_current_request_max")))
+
+            # 2. 🌡️ climate_state Fields
+            if climate_st.get("inside_temp") is not None:
+                fields["inside_temp_c"] = round(float(climate_st["inside_temp"]), 1)
+            if climate_st.get("outside_temp") is not None:
+                fields["outside_temp_c"] = round(float(climate_st["outside_temp"]), 1)
+            if climate_st.get("driver_temp_setting") is not None:
+                fields["driver_temp_setting_c"] = round(float(climate_st["driver_temp_setting"]), 1)
+            if climate_st.get("passenger_temp_setting") is not None:
+                fields["passenger_temp_setting_c"] = round(float(climate_st["passenger_temp_setting"]), 1)
+            if climate_st.get("fan_status") is not None:
+                fields["fan_status"] = int(safe_float(climate_st.get("fan_status")))
+            if climate_st.get("defrost_mode") is not None:
+                fields["defrost_mode"] = int(safe_float(climate_st.get("defrost_mode")))
+            for seat in ["seat_heater_left", "seat_heater_right", "seat_heater_rear_left", "seat_heater_rear_right", "seat_heater_rear_center"]:
+                if climate_st.get(seat) is not None:
+                    fields[seat] = int(safe_float(climate_st.get(seat)))
+
+            # 3. 🛣️ drive_state Fields
             fields["speed_kmh"] = speed_kmh
-            raw_odo = safe_float(vehicle_st.get("odometer"))
-            fields["odometer_km"] = round(miles_to_km(raw_odo), 2)
+            pwr_kw = safe_float(drive_st.get("power"))
+            if pwr_kw != 0:
+                fields["power_kw"] = round(pwr_kw, 2)
+            elif chg_pwr > 0:
+                fields["power_kw"] = round(chg_pwr, 2)
+            else:
+                fields["power_kw"] = 0.0
 
             if drive_st.get("latitude") is not None and drive_st.get("longitude") is not None:
                 fields["latitude"] = round(float(drive_st["latitude"]), 6)
@@ -159,22 +199,34 @@ class TelemetryToInfluxParser:
 
             if drive_st.get("heading") is not None:
                 fields["heading_deg"] = round(float(drive_st["heading"]), 1)
+            if drive_st.get("gps_as_of") is not None:
+                fields["gps_as_of"] = int(safe_float(drive_st.get("gps_as_of")))
+            if drive_st.get("active_route_energy_at_arrival") is not None:
+                fields["active_route_energy_at_arrival"] = int(safe_float(drive_st.get("active_route_energy_at_arrival")))
+            if drive_st.get("active_route_traffic_minutes_delay") is not None:
+                fields["active_route_traffic_minutes_delay"] = round(safe_float(drive_st.get("active_route_traffic_minutes_delay")), 1)
 
-            # Temperatures
-            if climate_st.get("inside_temp") is not None:
-                fields["inside_temp_c"] = round(float(climate_st["inside_temp"]), 1)
-            if climate_st.get("outside_temp") is not None:
-                fields["outside_temp_c"] = round(float(climate_st["outside_temp"]), 1)
-            if climate_st.get("driver_temp_setting") is not None:
-                fields["driver_temp_setting_c"] = round(float(climate_st["driver_temp_setting"]), 1)
+            # 4. 🚘 vehicle_state Fields
+            raw_odo = safe_float(vehicle_st.get("odometer"))
+            fields["odometer_km"] = round(miles_to_km(raw_odo), 2)
+            if vehicle_st.get("center_display_state") is not None:
+                fields["center_display_state"] = int(safe_float(vehicle_st.get("center_display_state")))
 
-            # Tire Pressures (TPMS) - Convert bar / psi
+            for door in ["df", "pf", "dr", "pr"]:
+                if vehicle_st.get(door) is not None:
+                    fields[f"door_{door}"] = int(safe_float(vehicle_st.get(door)))
+            for win in ["fd_window", "fp_window", "rd_window", "rp_window"]:
+                if vehicle_st.get(win) is not None:
+                    fields[f"window_{win}"] = int(safe_float(vehicle_st.get(win)))
+            for trunk in ["ft", "rt"]:
+                if vehicle_st.get(trunk) is not None:
+                    fields[f"trunk_{trunk}"] = int(safe_float(vehicle_st.get(trunk)))
+
+            # Tire Pressures (TPMS)
             tpms_fl = safe_float(vehicle_st.get("tpms_pressure_fl"))
             tpms_fr = safe_float(vehicle_st.get("tpms_pressure_fr"))
             tpms_rl = safe_float(vehicle_st.get("tpms_pressure_rl"))
             tpms_rr = safe_float(vehicle_st.get("tpms_pressure_rr"))
-
-            # Normalize to bar (Tesla returns bar by default in vehicle_data)
             if tpms_fl > 0:
                 fields["tpms_fl_bar"] = round(tpms_fl if tpms_fl < 10 else tpms_fl * 0.0689476, 2)
             if tpms_fr > 0:
@@ -183,6 +235,22 @@ class TelemetryToInfluxParser:
                 fields["tpms_rl_bar"] = round(tpms_rl if tpms_rl < 10 else tpms_rl * 0.0689476, 2)
             if tpms_rr > 0:
                 fields["tpms_rr_bar"] = round(tpms_rr if tpms_rr < 10 else tpms_rr * 0.0689476, 2)
+
+            # 5. 📡 Fleet Telemetry / Advanced Diagnostics Fields
+            if raw.get("BrakePedalPos") is not None:
+                fields["brake_pedal_pos"] = round(safe_float(raw.get("BrakePedalPos")), 2)
+            if raw.get("ACChargingEnergyIn") is not None:
+                fields["ac_charging_energy_in_kwh"] = round(safe_float(raw.get("ACChargingEnergyIn")), 2)
+            if raw.get("DCChargingEnergyIn") is not None:
+                fields["dc_charging_energy_in_kwh"] = round(safe_float(raw.get("DCChargingEnergyIn")), 2)
+            if raw.get("BrickVoltageMax") is not None:
+                fields["brick_voltage_max_v"] = round(safe_float(raw.get("BrickVoltageMax")), 3)
+            if raw.get("BrickVoltageMin") is not None:
+                fields["brick_voltage_min_v"] = round(safe_float(raw.get("BrickVoltageMin")), 3)
+            if raw.get("DiInverterTR") is not None:
+                fields["di_inverter_tr_c"] = round(safe_float(raw.get("DiInverterTR")), 1)
+            if raw.get("DiInverterTF") is not None:
+                fields["di_inverter_tf_c"] = round(safe_float(raw.get("DiInverterTF")), 1)
 
             ts_raw = raw.get("timestamp") or drive_st.get("timestamp")
             if ts_raw:

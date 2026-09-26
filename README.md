@@ -133,6 +133,36 @@ LaVera automatically captures GPS trackpoints (`latitude`, `longitude`) from imp
 
 ---
 
+## 📊 Real-Time Telemetry & Time-Series Mapping
+
+LaVera structures continuous streaming telemetry from the **Tesla Fleet API**, **Tessie API**, and **Fleet Telemetry** into 5 core domains with an optimized schema for InfluxDB and TimescaleDB:
+
+> **Time-Series Storage Pattern:**
+> - **Tags (Low-Cardinality Indexes):** `string` and `boolean` attributes (e.g. `charging_state`, `shift_state`, `locked`, `sentry_mode`, `is_climate_on`) for instantaneous faceted queries and grouping.
+> - **Fields (Numerical Time-Series Metrics):** `int` and `float` variables (e.g. `power`, `speed`, `odometer`, `inside_temp`, `charger_power`) for continuous curve rendering, energy integrals, and analytical dashboards in Grafana.
+
+1. **🔋 `charge_state` (Energy & Battery):**
+   - **Fields:** `battery_level` (SoC %), `usable_battery_level` (net SoC %), `charge_limit_soc` (%), `battery_range` (km), `charger_voltage` (V), `charger_actual_current` (A), `charge_current_request` (A), `charge_current_request_max` (A), `charger_power` (kW), `charge_energy_added` (kWh), `time_to_full_charge` (h).
+   - **Tags:** `charging_state` (`Disconnected`, `Charging`, `Complete`, `Stopped`), `charge_port_door_open`, `charge_port_latch` (`Engaged`/`Disengaged`), `conn_charge_cable`, `battery_heater_on`, `fast_charger_present`.
+
+2. **🌡️ `climate_state` (Climate Control & Ambient Sensors):**
+   - **Fields:** `inside_temp` (°C), `outside_temp` (°C), `driver_temp_setting` (°C), `passenger_temp_setting` (°C), `fan_status` (0-7), `defrost_mode` (0-2), seat heating levels (`seat_heater_left`, `seat_heater_right`, rear rows 0-3).
+   - **Tags:** `is_climate_on`, `is_auto_conditioning_on`, `climate_keeper_mode` (`off`, `keep`, `dog`, `camp`), `steering_wheel_heater`, `cabin_overheat_protection` (`On`, `Off`, `FanOnly`).
+
+3. **🛣️ `drive_state` (Vehicle Dynamics & Geolocation):**
+   - **Fields:** `speed` (km/h), `power` (net kW: positive acceleration / negative regen), `latitude` (WGS84), `longitude` (WGS84), `heading` (0-359°), `gps_as_of` (epoch timestamp), `active_route_energy_at_arrival` (SoC %), `active_route_traffic_minutes_delay` (min).
+   - **Tags:** `shift_state` (`P`, `R`, `N`, `D`), `active_route_destination`.
+
+4. **🚘 `vehicle_state` (Hardware, Body & Security):**
+   - **Fields:** `odometer` (total km), `tpms_pressure_fl` / `fr` / `rl` / `rr` (tire pressure in Bar), door closures (`df`, `pf`, `dr`, `pr`), windows (`fd_window`, `fp_window`, etc.), trunks (`ft`, `rt`), `center_display_state` (0=off, 2=on).
+   - **Tags:** `locked` (`true`/`false`), `sentry_mode`, `is_user_present`, `car_version` (firmware), `software_update.status`.
+
+5. **📡 Fleet Telemetry / Advanced Diagnostics:**
+   - **Fields:** `BrakePedalPos` (% cylinder pressure), `ACChargingEnergyIn` (kWh), `DCChargingEnergyIn` (kWh), `BrickVoltageMax` / `BrickVoltageMin` (cell brick voltages for imbalance diagnosis), `DiInverterTR` / `DiInverterTF` (drive unit inverter temperatures in °C).
+   - **Tags:** `BmsFullchargecomplete` (100% cell balancing completion flag).
+
+---
+
 ## 🔄 Tesla Historical Importer (Tessie & TeslaFi)
 
 Consolidate all historical driving, charging, and battery degradation logs from **Tessie** or **TeslaFi**:

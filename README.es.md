@@ -133,6 +133,36 @@ LaVera extrae automáticamente los puntos GPS (`latitude`, `longitude`) de los t
 
 ---
 
+## 📊 Telemetría en Tiempo Real y Mapeo en Series Temporales
+
+LaVera normaliza los flujos de datos en vivo de la **Tesla Fleet API**, **Tessie** y **Fleet Telemetry** estructurando cada medición en 5 categorías fundamentales bajo un esquema optimizado para InfluxDB y TimescaleDB:
+
+> **Estrategia de Almacenamiento:**
+> - **Tags (Índices de baja cardinalidad):** Valores `string` y `boolean` (ej. `charging_state`, `shift_state`, `locked`, `sentry_mode`, `is_climate_on`) para filtrado y agrupaciones ultrarrápidas.
+> - **Fields (Series temporales numéricas):** Valores `int` y `float` (ej. `power`, `speed`, `odometer`, `inside_temp`, `charger_power`) para graficar líneas continuas, integrales de energía e histogramas en Grafana.
+
+1. **🔋 `charge_state` (Energía y Batería):**
+   - **Fields:** `battery_level` (SoC %), `usable_battery_level` (SoC neto %), `charge_limit_soc` (%), `battery_range` (km), `charger_voltage` (V), `charger_actual_current` (A), `charge_current_request` (A), `charge_current_request_max` (A), `charger_power` (kW), `charge_energy_added` (kWh), `time_to_full_charge` (h).
+   - **Tags:** `charging_state` (`Disconnected`, `Charging`, `Complete`, `Stopped`), `charge_port_door_open`, `charge_port_latch` (`Engaged`/`Disengaged`), `conn_charge_cable`, `battery_heater_on`, `fast_charger_present`.
+
+2. **🌡️ `climate_state` (Climatización y Sensores):**
+   - **Fields:** `inside_temp` (°C), `outside_temp` (°C), `driver_temp_setting` (°C), `passenger_temp_setting` (°C), `fan_status` (0-7), `defrost_mode` (0-2), calefacción en asientos (`seat_heater_left`, `seat_heater_right`, plazas traseras 0-3).
+   - **Tags:** `is_climate_on`, `is_auto_conditioning_on`, `climate_keeper_mode` (`off`, `keep`, `dog`, `camp`), `steering_wheel_heater`, `cabin_overheat_protection` (`On`, `Off`, `FanOnly`).
+
+3. **🛣️ `drive_state` (Dinámica y Geolocalización):**
+   - **Fields:** `speed` (km/h), `power` (kW instantáneos: tracción positiva / regeneración negativa), `latitude` (WGS84), `longitude` (WGS84), `heading` (0-359°), `gps_as_of` (UNIX timestamp), `active_route_energy_at_arrival` (SoC %), `active_route_traffic_minutes_delay` (min).
+   - **Tags:** `shift_state` (`P`, `R`, `N`, `D`), `active_route_destination`.
+
+4. **🚘 `vehicle_state` (Hardware, Carrocería y Seguridad):**
+   - **Fields:** `odometer` (km totales), `tpms_pressure_fl` / `fr` / `rl` / `rr` (presión de neumáticos en Bar), apertura de puertas (`df`, `pf`, `dr`, `pr`), ventanillas (`fd_window`, `fp_window`, etc.), maleteros (`ft`, `rt`), `center_display_state` (0=off, 2=on).
+   - **Tags:** `locked` (`true`/`false`), `sentry_mode`, `is_user_present`, `car_version` (firmware), `software_update.status`.
+
+5. **📡 Fleet Telemetry / Diagnósticos Avanzados:**
+   - **Fields:** `BrakePedalPos` (% presión de freno), `ACChargingEnergyIn` (kWh), `DCChargingEnergyIn` (kWh), `BrickVoltageMax` / `BrickVoltageMin` (voltajes de celdas para detección de desbalanceo), `DiInverterTR` / `DiInverterTF` (temperatura de inversores motor trasero/delantero en °C).
+   - **Tags:** `BmsFullchargecomplete` (completitud de balanceo BMS al 100%).
+
+---
+
 ## 🔄 Importación de Datos de Tesla (Tessie y TeslaFi)
 
 Si vienes de utilizar **Tessie** o **TeslaFi**, LaVera consolida todo tu histórico:

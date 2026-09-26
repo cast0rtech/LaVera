@@ -16,7 +16,7 @@ services:
       - "8088:8088"
       - "8080:8088"
     environment:
-      - TZ=Europe/Madrid
+      - TZ=${TZ:-Europe/Zurich}
       - PORT=8088
       - LAVERA_DB_PATH=/app/data/lavera.db
       - INFLUXDB_URL=http://influxdb:8086
@@ -77,7 +77,7 @@ services:
       - POSTGRES_USER=lavera
       - POSTGRES_PASSWORD=LaVeraSecurePass2026!
       - POSTGRES_DB=lavera_telemetry
-      - TZ=Europe/Madrid
+      - TZ=${TZ:-Europe/Zurich}
     volumes:
       - timescale_data:/var/lib/postgresql/data
       - ./sql/init-timescaledb.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
@@ -97,7 +97,7 @@ services:
     ports:
       - "1880:1880"
     environment:
-      - TZ=Europe/Madrid
+      - TZ=${TZ:-Europe/Zurich}
     volumes:
       - ./data/nodered:/data
     networks:
@@ -111,7 +111,7 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
-      - TZ=Europe/Madrid
+      - TZ=${TZ:-Europe/Zurich}
     volumes:
       - ./data/grafana:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
@@ -132,7 +132,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=Europe/Madrid
+      - TZ=${TZ:-Europe/Zurich}
     volumes:
       - ./data/homeassistant:/config
     networks:

@@ -143,8 +143,9 @@ exec > /var/log/lavera-firstboot.log 2>&1
 
 echo "⚡ [LaVera] Starting First-Boot Configuration..."
 
-# 1. Setup Hostname
+# 1. Setup Hostname & Timezone
 hostnamectl set-hostname lavera
+timedatectl set-timezone Europe/Zurich 2>/dev/null || ln -sf /usr/share/zoneinfo/Europe/Zurich /etc/localtime || true
 sed -i 's/127.0.1.1.*/127.0.1.1\\tlavera/' /etc/hosts || true
 
 # 2. Extract Application Payload
@@ -171,6 +172,7 @@ ExecStart=/usr/bin/python3 /opt/lavera/all-in-one/app.py
 Restart=always
 RestartSec=5
 Environment=PORT=8088
+Environment=TZ=Europe/Zurich
 Environment=LAVERA_DB_PATH=/opt/lavera/data/lavera.db
 
 [Install]

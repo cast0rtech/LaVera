@@ -19,6 +19,8 @@ packages:
   - avahi-utils
   - git
 
+timezone: Europe/Zurich
+
 # Setup system user and environment
 users:
   - name: lavera
@@ -43,7 +45,7 @@ write_files:
       RestartSec=10
       ExecStartPre=-/usr/bin/docker stop lavera_hub
       ExecStartPre=-/usr/bin/docker rm lavera_hub
-      ExecStart=/usr/bin/docker run --name lavera_hub -p 8088:8088 -p 8080:8088 -v /opt/lavera/data:/app/data --restart unless-stopped lavera-hub:all-in-one
+      ExecStart=/usr/bin/docker run --name lavera_hub -p 8088:8088 -p 8080:8088 -e TZ=Europe/Zurich -v /opt/lavera/data:/app/data --restart unless-stopped lavera-hub:all-in-one
       ExecStop=/usr/bin/docker stop lavera_hub
 
       [Install]

@@ -43,26 +43,27 @@ write_files:
       RestartSec=10
       ExecStartPre=-/usr/bin/docker stop lavera_hub
       ExecStartPre=-/usr/bin/docker rm lavera_hub
-      ExecStart=/usr/bin/docker run --name lavera_hub -p 8080:8080 -v /opt/lavera/data:/app/data --restart unless-stopped lavera-hub:all-in-one
+      ExecStart=/usr/bin/docker run --name lavera_hub -p 8088:8088 -p 8080:8088 -v /opt/lavera/data:/app/data --restart unless-stopped lavera-hub:all-in-one
       ExecStop=/usr/bin/docker stop lavera_hub
 
       [Install]
       WantedBy=multi-user.target
 
 runcmd:
-  # 1. Install Docker Engine
-  - mkdir -p /etc/apt/keyrings
-  - curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+  # 1. Install Docker Engine (Raspberry Pi OS Bookworm / Debian 12 compatible)
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo \"$VERSION_CODENAME\") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
   - apt-get update
-  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
   # 2. Setup LaVera working directories
   - mkdir -p /opt/lavera/data
   - chown -R lavera:lavera /opt/lavera
 
   # 3. Clone and build LaVera Hub directly on device
-  - git clone https://github.com/castor/LaVera.git /opt/lavera/src || true
+  - git clone https://github.com/cast0rtech/LaVera.git /opt/lavera/src || true
   - docker build -t lavera-hub:all-in-one -f /opt/lavera/src/ev-telemetry-hub/Dockerfile.all-in-one /opt/lavera/src/ev-telemetry-hub
 
   # 4. Enable and start background service
@@ -72,4 +73,4 @@ runcmd:
   - systemctl enable lavera-hub.service
   - systemctl start lavera-hub.service
 
-final_message: "? LaVera Hub is ready! Access your dashboard at http://lavera.local:8080"
+final_message: "⚡ LaVera Hub is ready! Access your dashboard at http://lavera.local:8088 or http://lavera.local:8080"

@@ -13,8 +13,8 @@ services:
     container_name: lavera_hub
     restart: always
     ports:
-      - "8080:8080"
       - "8088:8088"
+      - "8080:8088"
     environment:
       - TZ=Europe/Madrid
       - PORT=8088

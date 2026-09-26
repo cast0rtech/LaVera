@@ -7,14 +7,14 @@
 services:
   lavera-hub:
     build:
-      context: ..
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.all-in-one
     image: lavera-hub:latest
     container_name: lavera_hub
     restart: always
     ports:
-      - "8080:8080"
       - "8088:8088"
+      - "8080:8088"
     environment:
       - TZ=Europe/Madrid
       - PORT=8088
@@ -29,7 +29,7 @@ services:
       - POSTGRES_PASSWORD=LaVeraSecurePass2026!
       - POSTGRES_DB=lavera_telemetry
     volumes:
-      - ./ev-telemetry-hub/data:/app/data
+      - ./data:/app/data
     depends_on:
       influxdb:
         condition: service_healthy
@@ -80,7 +80,7 @@ services:
       - TZ=Europe/Madrid
     volumes:
       - timescale_data:/var/lib/postgresql/data
-      - ./ev-telemetry-hub/sql/init-timescaledb.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./sql/init-timescaledb.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U lavera -d lavera_telemetry"]
       interval: 10s
@@ -99,7 +99,7 @@ services:
     environment:
       - TZ=Europe/Madrid
     volumes:
-      - ./ev-telemetry-hub/data/nodered:/data
+      - ./data/nodered:/data
     networks:
       - telemetry_net
 
@@ -113,8 +113,8 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - TZ=Europe/Madrid
     volumes:
-      - ./ev-telemetry-hub/data/grafana:/var/lib/grafana
-      - ./ev-telemetry-hub/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./data/grafana:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       influxdb:
         condition: service_healthy
@@ -134,7 +134,7 @@ services:
       - PGID=1000
       - TZ=Europe/Madrid
     volumes:
-      - ./ev-telemetry-hub/data/homeassistant:/config
+      - ./data/homeassistant:/config
     networks:
       - telemetry_net
 

@@ -36,7 +36,7 @@ Restart=always
 RestartSec=10
 ExecStartPre=-/usr/bin/docker stop lavera_hub
 ExecStartPre=-/usr/bin/docker rm lavera_hub
-ExecStart=/usr/bin/docker run --name lavera_hub -p 8080:8080 -v /opt/lavera/data:/app/data --restart unless-stopped lavera-hub:all-in-one
+ExecStart=/usr/bin/docker run --name lavera_hub -p 8088:8088 -p 8080:8088 -v /opt/lavera/data:/app/data --restart unless-stopped lavera-hub:all-in-one
 ExecStop=/usr/bin/docker stop lavera_hub
 
 [Install]
@@ -48,4 +48,4 @@ systemctl enable lavera-hub.service
 systemctl restart lavera-hub.service
 
 echo "[+] LaVera Hub service installed and active!"
-echo "?? Access your local dashboard at http://$(hostname).local:8080 or http://localhost:8080"
+echo "⚡ Access your local dashboard at http://$(hostname).local:8088 or http://localhost:8088"

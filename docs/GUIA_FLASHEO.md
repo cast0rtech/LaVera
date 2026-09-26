@@ -40,7 +40,7 @@ Raspberry Pi Imager permite preconfigurar el sistema operativo antes de escribir
    - Selecciona tu tarjeta de almacenamiento (microSD o SSD USB) y pulsa **Siguiente** ➔ **Escribir**.
 5. **Arrancar y Conectar:**
    - Introduce la tarjeta en tu Raspberry Pi y enciéndela.
-   - Abre tu navegador en **`http://lavera.local:8080`**.
+   - Abre tu navegador en **`http://lavera.local:8088`** (o **`http://lavera.local:8080`**).
 
 ---
 
@@ -64,7 +64,7 @@ Raspberry Pi Imager permite preconfigurar el sistema operativo antes de escribir
      - `lavera-payload.tar.gz` (aplicación completa de LaVera Hub y panel offline)
 4. **Arrancar la Raspberry Pi:**
    - Expulsa la tarjeta de forma segura, conéctala a tu Raspberry Pi y enciéndela.
-   - El sistema descomprimirá la aplicación, activará el servicio y estará disponible en **`http://lavera.local:8080`**.
+   - El sistema descomprimirá la aplicación, activará el servicio y estará disponible en **`http://lavera.local:8088`** (o `http://lavera.local:8080`).
 
 ---
 
@@ -93,7 +93,7 @@ El script descomprimirá la imagen, montará la partición de arranque FAT32, in
 ## 🌐 Verificación y Primera Conexión
 
 Una vez iniciado el dispositivo:
-- **Panel de Control Web:** `http://lavera.local:8080` (o `http://<IP_DE_LA_PI>:8080`).
+- **Panel de Control Web:** `http://lavera.local:8088` (o `http://lavera.local:8080`, `http://<IP_DE_LA_PI>:8088`).
 - **Acceso por SSH:**
   ```bash
   ssh lavera@lavera.local

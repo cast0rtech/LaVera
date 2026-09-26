@@ -170,7 +170,7 @@ WorkingDirectory=/opt/lavera
 ExecStart=/usr/bin/python3 /opt/lavera/all-in-one/app.py
 Restart=always
 RestartSec=5
-Environment=PORT=8080
+Environment=PORT=8088
 Environment=LAVERA_DB_PATH=/opt/lavera/data/lavera.db
 
 [Install]
@@ -191,7 +191,7 @@ if [ -f "${BOOT_DIR}/cmdline.txt" ]; then
     sed -i 's| systemd.run=/boot/firstrun.sh||g' "${BOOT_DIR}/cmdline.txt" || true
 fi
 
-echo "⚡ [LaVera] First boot completed successfully! Dashboard at http://lavera.local:8080"
+echo "⚡ [LaVera] First boot completed successfully! Dashboard at http://lavera.local:8088"
 """
     with open(os.path.join(overlay_dir, "firstrun.sh"), "w", encoding="utf-8", newline="\n") as f:
         f.write(firstrun_sh.strip() + "\n")

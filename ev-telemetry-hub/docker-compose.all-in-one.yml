@@ -6,8 +6,8 @@
 services:
   lavera-hub:
     build:
-      context: ..
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.all-in-one
     image: lavera-hub:all-in-one
     container_name: lavera_hub
     restart: always
@@ -23,7 +23,7 @@ services:
       - INFLUXDB_ORG=${INFLUXDB_ORG:-lavera}
       - INFLUXDB_BUCKET=${INFLUXDB_BUCKET:-ev_telemetry}
     volumes:
-      - ./ev-telemetry-hub/data:/app/data
+      - ./data:/app/data
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8088/api/health', timeout=3)"]
       interval: 30s

@@ -67,7 +67,7 @@ Pasos para instalar en Raspberry Pi OS o Armbian:
    sudo bash install.sh
 
 3. Accede al panel local desde cualquier navegador en la red:
-   http://lavera.local:8080
+   http://lavera.local:8088 (o http://lavera.local:8080)
 EOF
 
 echo "[+] ARM Image Bundle successfully generated in ${BUNDLE_DIR}!"

@@ -40,7 +40,7 @@ Raspberry Pi Imager allows you to configure OS settings before writing the image
    - Choose your Storage (microSD or USB SSD) and click **Next** ➔ **Write**.
 5. **Boot & Access:**
    - Insert the card into your Raspberry Pi and power on.
-   - Open your browser at **`http://lavera.local:8080`**.
+   - Open your browser at **`http://lavera.local:8088`** (or **`http://lavera.local:8080`**).
 
 ---
 
@@ -64,7 +64,7 @@ Raspberry Pi Imager allows you to configure OS settings before writing the image
      - `lavera-payload.tar.gz` (pre-bundled LaVera hub & dashboard)
 4. **Boot Your Raspberry Pi:**
    - Safely eject the card, insert it into the Pi, and power on.
-   - The Pi will automatically extract LaVera, start the service, and be accessible at **`http://lavera.local:8080`**.
+   - The Pi will automatically extract LaVera, start the service, and be accessible at **`http://lavera.local:8088`** (or `http://lavera.local:8080`).
 
 ---
 
@@ -93,7 +93,7 @@ It will automatically decompress, mount the FAT32 boot partition, inject the LaV
 ## 🌐 Verification & First Connection
 
 Once booted:
-- **Web Dashboard:** `http://lavera.local:8080` (or `http://<IP_ADDRESS>:8080`).
+- **Web Dashboard:** `http://lavera.local:8088` (or `http://lavera.local:8080`, `http://<IP_ADDRESS>:8088`).
 - **SSH Access:**
   ```bash
   ssh lavera@lavera.local

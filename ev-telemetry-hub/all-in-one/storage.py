@@ -518,6 +518,17 @@ class OfflineStorage:
             cur = conn.cursor()
             params = []
             vin_clause = ""
+            if not vin or vin == "ALL":
+                # Prefer active user vehicle VIN if registered in settings
+                try:
+                    cur_set = conn.cursor()
+                    cur_set.execute("SELECT value FROM settings WHERE key='tessie_vin'")
+                    s_row = cur_set.fetchone()
+                    if s_row and s_row["value"]:
+                        vin = s_row["value"]
+                except Exception:
+                    pass
+
             if vin and vin != "ALL":
                 vin_clause = "WHERE vin = ?"
                 params.append(vin)
@@ -532,6 +543,13 @@ class OfflineStorage:
                 try:
                     parsed = json.loads(row["raw_json"])
                     if isinstance(parsed, dict):
+                        if "raw_json" in parsed and isinstance(parsed["raw_json"], str):
+                            try:
+                                inner_parsed = json.loads(parsed["raw_json"])
+                                if isinstance(inner_parsed, dict):
+                                    parsed = inner_parsed
+                            except Exception:
+                                pass
                         live_raw = parsed.get("response", parsed)
                 except Exception:
                     live_raw = {}
@@ -544,20 +562,21 @@ class OfflineStorage:
         drive_st = live_raw.get("drive_state", {}) if isinstance(live_raw.get("drive_state"), dict) else {}
         vehicle_st = live_raw.get("vehicle_state", {}) if isinstance(live_raw.get("vehicle_state"), dict) else {}
 
-        # Default fallback values representing a realistic healthy Tesla Model 3/Y
+        # Default fallback values representing a realistic healthy Tesla Model 3/Y in Wallisellen, Switzerland
         soc_val = row["soc"] if row and row["soc"] is not None else charge_st.get("battery_level", 78)
         chg_state = row["charging_state"] if row and row["charging_state"] else charge_st.get("charging_state", "Disconnected")
         speed_val = row["speed_kmh"] if row and row["speed_kmh"] is not None else drive_st.get("speed", 0)
         pwr_val = row["power_kw"] if row and row["power_kw"] is not None else drive_st.get("power", 0.0)
         odo_val = row["odometer_km"] if row and row["odometer_km"] is not None else vehicle_st.get("odometer", 32750.0)
-        lat_val = row["latitude"] if row and row["latitude"] is not None else drive_st.get("latitude", 40.4168)
-        lon_val = row["longitude"] if row and row["longitude"] is not None else drive_st.get("longitude", -3.7038)
+        lat_val = row["latitude"] if row and row["latitude"] is not None else drive_st.get("latitude", 47.408546)
+        lon_val = row["longitude"] if row and row["longitude"] is not None else drive_st.get("longitude", 8.597435)
         ts_val = row["timestamp"] if row and row["timestamp"] else live_raw.get("timestamp", "2026-09-26 19:45:00")
-        car_vin = (row["vin"] if row and row["vin"] else (live_raw.get("vin") or "5YJ3E7EB8NF123456"))
+        car_vin = (row["vin"] if row and row["vin"] else (live_raw.get("vin") or "LRW3E7FS4NC525517"))
+        disp_name = live_raw.get("display_name") or "Tesla Model 3/Y Long Range"
 
         return {
             "vin": car_vin,
-            "display_name": "Tesla Model 3/Y Long Range",
+            "display_name": disp_name,
             "timestamp": ts_val,
             "charge_state": {
                 "battery_level": int(soc_val),
@@ -602,11 +621,11 @@ class OfflineStorage:
                 "power": int(pwr_val),
                 "latitude": float(lat_val),
                 "longitude": float(lon_val),
-                "heading": int(drive_st.get("heading", 182)),
+                "heading": int(drive_st.get("heading", 202)),
                 "gps_as_of": int(drive_st.get("gps_as_of", 1727372000)),
-                "active_route_destination": str(drive_st.get("active_route_destination", "Paseo de la Castellana 200, Madrid")),
-                "active_route_energy_at_arrival": int(drive_st.get("active_route_energy_at_arrival", 64)),
-                "active_route_traffic_minutes_delay": round(float(drive_st.get("active_route_traffic_minutes_delay", 4.5)), 1),
+                "active_route_destination": str(drive_st.get("active_route_destination") or "Wallisellen, Suiza"),
+                "active_route_energy_at_arrival": int(drive_st.get("active_route_energy_at_arrival") or 64),
+                "active_route_traffic_minutes_delay": round(float(drive_st.get("active_route_traffic_minutes_delay") or 0.0), 1),
             },
             "vehicle_state": {
                 "odometer": round(float(odo_val), 1),
@@ -799,8 +818,8 @@ class OfflineStorage:
             "battery_temp_c": 24.5,
             "odometer_km": 32750.0,
             "charging_state": "STANDBY",
-            "latitude": 40.4632,
-            "longitude": -3.6898
+            "latitude": 47.408546,
+            "longitude": 8.597435
         })
 
         return {

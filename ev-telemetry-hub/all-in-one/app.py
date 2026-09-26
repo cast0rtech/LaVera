@@ -721,7 +721,15 @@ class LaVeraRequestHandler(SimpleHTTPRequestHandler):
                 payload = json.loads(post_data.decode("utf-8")) if post_data else {}
             except Exception:
                 payload = {}
-            vin = payload.get("vin") or query.get("vin", ["5YJ3E7EB8NF123456"])[0]
+            vin = payload.get("vin") or query.get("vin", [None])[0]
+            if not vin:
+                try:
+                    s_vin = storage.get_setting("tessie_vin")
+                    if s_vin:
+                        vin = s_vin
+                except Exception:
+                    pass
+            vin = vin or "LRW3E7FS4NC525517"
             curr = storage.get_live_vehicle_state(vin=vin)
             for domain in ["charge_state", "climate_state", "drive_state", "vehicle_state", "fleet_telemetry"]:
                 if domain in payload and isinstance(payload[domain], dict):
@@ -742,8 +750,8 @@ class LaVeraRequestHandler(SimpleHTTPRequestHandler):
                 "outside_temp_c": curr["climate_state"].get("outside_temp", 18.0),
                 "odometer_km": curr["vehicle_state"].get("odometer", 32750.0),
                 "charging_state": curr["charge_state"].get("charging_state", "STANDBY"),
-                "latitude": curr["drive_state"].get("latitude", 40.4168),
-                "longitude": curr["drive_state"].get("longitude", -3.7038),
+                "latitude": curr["drive_state"].get("latitude", 47.408546),
+                "longitude": curr["drive_state"].get("longitude", 8.597435),
                 "raw_json": json.dumps(curr)
             })
             self._send_json({"status": "success", "state": curr})

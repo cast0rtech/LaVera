@@ -1122,8 +1122,14 @@ function initLiveVehicle() {
 
 async function loadLiveVehicle(showLoading = true) {
   try {
+    const vinBadge = document.getElementById("live-vin-badge")?.innerText?.trim();
     const currentVin = document.getElementById("current-vin")?.innerText?.trim();
-    const queryVin = (currentVin && !currentVin.includes("Tesla")) ? `?vin=${encodeURIComponent(currentVin)}` : "";
+    let queryVin = "";
+    if (vinBadge && vinBadge.length === 17 && !vinBadge.includes(" ")) {
+      queryVin = `?vin=${encodeURIComponent(vinBadge)}`;
+    } else if (currentVin && currentVin.length === 17 && !currentVin.includes(" ")) {
+      queryVin = `?vin=${encodeURIComponent(currentVin)}`;
+    }
     const res = await fetch(`/api/live/state${queryVin}`);
     if (!res.ok) return;
     const data = await res.json();
@@ -1136,7 +1142,7 @@ async function loadLiveVehicle(showLoading = true) {
 
 async function updateLiveVehicleState(partialState) {
   try {
-    const currentVin = liveVehicleState?.vin || "5YJ3E7EB8NF123456";
+    const currentVin = liveVehicleState?.vin || document.getElementById("live-vin-badge")?.innerText?.trim() || "LRW3E7FS4NC525517";
     const payload = Object.assign({ vin: currentVin }, partialState);
     const res = await fetch("/api/live/state", {
       method: "POST",
@@ -1169,7 +1175,7 @@ function renderLiveVehicle(state) {
   if (carName) carName.innerText = state.display_name || "Tesla Model 3 / Y Long Range";
 
   const vinBadge = document.getElementById("live-vin-badge");
-  if (vinBadge) vinBadge.innerText = state.vin || "5YJ3E7EB8NF123456";
+  if (vinBadge) vinBadge.innerText = state.vin || "LRW3E7FS4NC525517";
 
   const fwBadge = document.getElementById("live-fw-badge");
   if (fwBadge) fwBadge.innerText = `v${vehicle.car_version || "2024.26.8"}`;
@@ -1179,6 +1185,52 @@ function renderLiveVehicle(state) {
 
   const odoSpan = document.getElementById("live-odo-km");
   if (odoSpan) odoSpan.innerText = `${(vehicle.odometer || 32750).toLocaleString()} km`;
+
+  // Dynamic Location Description
+  const locDesc = document.getElementById("live-loc-desc");
+  if (locDesc) {
+    if (drive.active_route_destination) {
+      locDesc.innerText = drive.active_route_destination;
+    } else if (drive.latitude != null && drive.longitude != null) {
+      if (Math.abs(drive.latitude - 47.41) < 0.25 && Math.abs(drive.longitude - 8.59) < 0.25) {
+        locDesc.innerText = "Wallisellen, Suiza (Zürich)";
+      } else {
+        locDesc.innerText = `${Number(drive.latitude).toFixed(4)}°, ${Number(drive.longitude).toFixed(4)}°`;
+      }
+    } else {
+      locDesc.innerText = "Wallisellen, Suiza";
+    }
+  }
+
+  // Active Destination and GPS coordinates
+  const liveRouteDest = document.getElementById("live-route-dest");
+  if (liveRouteDest) {
+    liveRouteDest.innerText = drive.active_route_destination || "Wallisellen, Suiza";
+  }
+  const liveGpsCoords = document.getElementById("live-gps-coords");
+  const liveMapLink = document.getElementById("live-map-link");
+  const latVal = drive.latitude != null ? Number(drive.latitude) : 47.408546;
+  const lonVal = drive.longitude != null ? Number(drive.longitude) : 8.597435;
+  const latStr = latVal.toFixed(6);
+  const lonStr = lonVal.toFixed(6);
+  if (liveGpsCoords) {
+    liveGpsCoords.innerText = `${latStr}, ${lonStr}`;
+  }
+  if (liveMapLink) {
+    liveMapLink.href = `https://www.openstreetmap.org/?mlat=${latStr}&mlon=${lonStr}#map=16/${latStr}/${lonStr}`;
+  }
+  const liveArrSoc = document.getElementById("live-route-arrival-soc");
+  if (liveArrSoc && drive.active_route_energy_at_arrival != null) {
+    liveArrSoc.innerText = `${drive.active_route_energy_at_arrival}%`;
+  }
+  const liveTraffic = document.getElementById("live-route-traffic");
+  if (liveTraffic && drive.active_route_traffic_minutes_delay != null) {
+    liveTraffic.innerText = `+${Number(drive.active_route_traffic_minutes_delay).toFixed(1)} min`;
+  }
+  const liveDynHeading = document.getElementById("live-dyn-heading");
+  if (liveDynHeading && drive.heading != null) {
+    liveDynHeading.innerText = `${drive.heading}°`;
+  }
 
   // PRND Transmission
   const currentGear = (drive.shift_state || "P").toUpperCase();
@@ -1262,7 +1314,7 @@ function renderLiveVehicle(state) {
   const tsSoc = document.getElementById("ts-soc");
   if (tsSoc) tsSoc.innerText = `${charge.battery_level || 78}%`;
   const tsNav = document.getElementById("ts-nav-dest");
-  if (tsNav) tsNav.innerText = drive.active_route_destination || "P. Castellana 200";
+  if (tsNav) tsNav.innerText = drive.active_route_destination || "Wallisellen, CH";
   const tsTempDriver = document.getElementById("ts-temp-driver");
   if (tsTempDriver) tsTempDriver.innerText = `${(climate.driver_temp_setting || 21).toFixed(1)}°`;
   const tsTempPass = document.getElementById("ts-temp-pass");
@@ -1492,11 +1544,11 @@ function renderLiveVehicle(state) {
   // Screen [B] Navigation & Route
   const panNavNext = document.getElementById("pan-nav-next");
   if (panNavNext) {
-    panNavNext.innerText = drive.active_route_destination ? `En ruta hacia ${drive.active_route_destination}` : "A 350 m en Paseo de la Castellana";
+    panNavNext.innerText = drive.active_route_destination ? `En ruta hacia ${drive.active_route_destination}` : "Wallisellen, Suiza";
   }
   const panNavDest = document.getElementById("pan-nav-dest-full");
   if (panNavDest) {
-    panNavDest.innerText = drive.active_route_destination ? `Navegación GPS: ${drive.active_route_destination}` : "Navegación GPS: Standby";
+    panNavDest.innerText = drive.active_route_destination ? `Navegación GPS: ${drive.active_route_destination}` : "GPS: Wallisellen (Zürich, Suiza)";
   }
   const panNavArrivalSoc = document.getElementById("pan-nav-arrival-soc");
   if (panNavArrivalSoc) {

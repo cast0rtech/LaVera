@@ -39,6 +39,10 @@ const TRANSLATIONS = {
     live_drive_nav: "Dinámica & Navegación GPS",
     live_fleet_diag: "Diagnóstico de Ingeniería & Celdas",
     live_sim_title: "Simulador Interactivo de Telemetría",
+    live_cabin_title: "Habitáculo Interior & Climatización Bi-Zona",
+    live_cabin_sub: "Asientos calefactables interactivos, volante térmico, pantalla central y climatizador",
+    live_dual_zone_driver: "Conductor",
+    live_dual_zone_pass: "Acompañante",
 
     // Banner
     empty_title: "Base de Datos Local Vacía",
@@ -214,6 +218,10 @@ const TRANSLATIONS = {
     live_drive_nav: "Dynamics & GPS Navigation",
     live_fleet_diag: "Engineering & Cell Diagnostics",
     live_sim_title: "Telemetry Interactive Simulator",
+    live_cabin_title: "Cabin Interior & Dual-Zone Climate",
+    live_cabin_sub: "Interactive heated seats, steering wheel heater, touchscreen, and climate control",
+    live_dual_zone_driver: "Driver",
+    live_dual_zone_pass: "Passenger",
 
     empty_title: "Empty Local Database",
     empty_desc: "No data saved yet in your local SQLite database. You can sync directly with Tessie API, upload export files, or load demo data to explore.",
@@ -379,6 +387,10 @@ const TRANSLATIONS = {
     live_drive_nav: "Fahrdynamik & GPS-Route",
     live_fleet_diag: "Flottentelemetrie & Zellen",
     live_sim_title: "Interaktiver Telemetrie-Simulator",
+    live_cabin_title: "Innenraum & Zwei-Zonen-Klima",
+    live_cabin_sub: "Sitzheizung, Lenkradheizung, Touchscreen und Klimaanlage",
+    live_dual_zone_driver: "Fahrer",
+    live_dual_zone_pass: "Beifahrer",
 
     empty_title: "Lokale Datenbank Leer",
     empty_desc: "Noch keine Daten in Ihrer lokalen SQLite-Datenbank gespeichert. Sie können mit der Tessie-API synchronisieren, Dateien importieren oder Demodaten laden.",
@@ -543,6 +555,10 @@ const TRANSLATIONS = {
     live_drive_nav: "Dynamique & Trajet GPS",
     live_fleet_diag: "Diagnostic Cellules & Flotte",
     live_sim_title: "Simulateur Interactif de Télémétrie",
+    live_cabin_title: "Habitacle & Climatisation Bi-Zone",
+    live_cabin_sub: "Sièges chauffants interactifs, volant chauffant, écran central et climatisation",
+    live_dual_zone_driver: "Conducteur",
+    live_dual_zone_pass: "Passager",
 
     empty_title: "Base de Données Locale Vide",
     empty_desc: "Aucune donnée enregistrée dans votre base SQLite locale. Vous pouvez synchroniser avec l'API Tessie, importer des fichiers ou charger des données démo.",
@@ -707,6 +723,10 @@ const TRANSLATIONS = {
     live_drive_nav: "Dinamica & Navigazione GPS",
     live_fleet_diag: "Diagnostica Celle & Flotta",
     live_sim_title: "Simulatore Interattivo Telemetria",
+    live_cabin_title: "Abitacolo & Climatizzazione Bi-Zona",
+    live_cabin_sub: "Sedili riscaldabili interattivi, volante termico, schermo centrale e climatizzazione",
+    live_dual_zone_driver: "Conducente",
+    live_dual_zone_pass: "Passeggero",
 
     empty_title: "Database Locale Vuoto",
     empty_desc: "Nessun dato salvato nel database SQLite locale. Puoi sincronizzare tramite API Tessie, caricare file o usare i dati demo.",
@@ -871,6 +891,10 @@ const TRANSLATIONS = {
     live_drive_nav: "行駛動態與 GPS 導航",
     live_fleet_diag: "車隊工程診斷與電芯",
     live_sim_title: "互動式測量模擬器",
+    live_cabin_title: "座艙內飾與雙區恆溫",
+    live_cabin_sub: "加熱座椅、方向盤加熱、中控螢幕及空調控制",
+    live_dual_zone_driver: "駕駛",
+    live_dual_zone_pass: "乘客",
 
     empty_title: "本地資料庫空白",
     empty_desc: "您的本地 SQLite 資料庫尚無資料。您可以直接與 Tessie API 同步、上傳匯出檔案，或載入示範資料進行探索。",

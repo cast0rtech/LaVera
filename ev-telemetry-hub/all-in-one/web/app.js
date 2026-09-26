@@ -936,38 +936,93 @@ function initLiveVehicle() {
     });
   }
 
-  // Dual-Zone Temp Setpoints
+  // Panoramic Cockpit - Steering Wheel Heat
+  const btnPanSteering = document.getElementById("btn-pan-wheel-heat");
+  if (btnPanSteering) {
+    btnPanSteering.addEventListener("click", () => {
+      if (!liveVehicleState) return;
+      const current = !!liveVehicleState.climate_state?.steering_wheel_heater;
+      updateLiveVehicleState({ climate_state: { steering_wheel_heater: !current } });
+    });
+  }
+
+  // Panoramic Cockpit - Steering Wheel Horn & Airbag (Audio & Visual)
+  const hornBtn = document.getElementById("wheel-horn-btn");
+  if (hornBtn) {
+    hornBtn.addEventListener("click", () => {
+      hornBtn.classList.add("horn-active");
+      playTeslaHornSound();
+      setTimeout(() => hornBtn.classList.remove("horn-active"), 350);
+    });
+  }
+
+  // Dual-Zone Temp Setpoints (Main Dashboard & Screen [C])
   const btnTempDriverDown = document.getElementById("btn-temp-driver-down");
   const btnTempDriverUp = document.getElementById("btn-temp-driver-up");
   const btnTempPassDown = document.getElementById("btn-temp-pass-down");
   const btnTempPassUp = document.getElementById("btn-temp-pass-up");
 
-  if (btnTempDriverDown) {
-    btnTempDriverDown.addEventListener("click", () => {
+  const scrTempDrDown = document.getElementById("scr-temp-dr-down");
+  const scrTempDrUp = document.getElementById("scr-temp-dr-up");
+  const scrTempPsDown = document.getElementById("scr-temp-ps-down");
+  const scrTempPsUp = document.getElementById("scr-temp-ps-up");
+
+  const adjustTemp = (zone, delta) => {
+    if (!liveVehicleState) return;
+    const key = zone === "driver" ? "driver_temp_setting" : "passenger_temp_setting";
+    const cur = liveVehicleState.climate_state?.[key] || (zone === "driver" ? 21.0 : 21.5);
+    const next = Math.max(16.0, Math.min(28.0, Math.round((cur + delta) * 10) / 10));
+    updateLiveVehicleState({ climate_state: { [key]: next } });
+  };
+
+  if (btnTempDriverDown) btnTempDriverDown.addEventListener("click", () => adjustTemp("driver", -0.5));
+  if (btnTempDriverUp) btnTempDriverUp.addEventListener("click", () => adjustTemp("driver", 0.5));
+  if (btnTempPassDown) btnTempPassDown.addEventListener("click", () => adjustTemp("passenger", -0.5));
+  if (btnTempPassUp) btnTempPassUp.addEventListener("click", () => adjustTemp("passenger", 0.5));
+
+  if (scrTempDrDown) scrTempDrDown.addEventListener("click", () => adjustTemp("driver", -0.5));
+  if (scrTempDrUp) scrTempDrUp.addEventListener("click", () => adjustTemp("driver", 0.5));
+  if (scrTempPsDown) scrTempPsDown.addEventListener("click", () => adjustTemp("passenger", -0.5));
+  if (scrTempPsUp) scrTempPsUp.addEventListener("click", () => adjustTemp("passenger", 0.5));
+
+  // Screen [C] Quick Seat Heaters
+  const scrSeatFl = document.getElementById("scr-btn-seat-fl");
+  const scrSeatFr = document.getElementById("scr-btn-seat-fr");
+  if (scrSeatFl) {
+    scrSeatFl.addEventListener("click", () => {
       if (!liveVehicleState) return;
-      const cur = liveVehicleState.climate_state?.driver_temp_setting || 21.0;
-      updateLiveVehicleState({ climate_state: { driver_temp_setting: Math.max(16.0, Math.round((cur - 0.5) * 10) / 10) } });
+      const cur = liveVehicleState.climate_state?.seat_heater_left || 0;
+      updateLiveVehicleState({ climate_state: { seat_heater_left: (cur + 1) % 4 } });
     });
   }
-  if (btnTempDriverUp) {
-    btnTempDriverUp.addEventListener("click", () => {
+  if (scrSeatFr) {
+    scrSeatFr.addEventListener("click", () => {
       if (!liveVehicleState) return;
-      const cur = liveVehicleState.climate_state?.driver_temp_setting || 21.0;
-      updateLiveVehicleState({ climate_state: { driver_temp_setting: Math.min(28.0, Math.round((cur + 0.5) * 10) / 10) } });
+      const cur = liveVehicleState.climate_state?.seat_heater_right || 0;
+      updateLiveVehicleState({ climate_state: { seat_heater_right: (cur + 1) % 4 } });
     });
   }
-  if (btnTempPassDown) {
-    btnTempPassDown.addEventListener("click", () => {
-      if (!liveVehicleState) return;
-      const cur = liveVehicleState.climate_state?.passenger_temp_setting || 21.5;
-      updateLiveVehicleState({ climate_state: { passenger_temp_setting: Math.max(16.0, Math.round((cur - 0.5) * 10) / 10) } });
+
+  // Passenger Glovebox Electronic Release
+  const btnGlovebox = document.getElementById("btn-open-glovebox");
+  let gloveboxOpen = false;
+  if (btnGlovebox) {
+    btnGlovebox.addEventListener("click", () => {
+      gloveboxOpen = !gloveboxOpen;
+      const txt = document.getElementById("txt-glovebox");
+      if (txt) txt.innerText = gloveboxOpen ? "[Abierta 🔓]" : "[Cerrar]";
+      btnGlovebox.classList.toggle("btn-active", gloveboxOpen);
     });
   }
-  if (btnTempPassUp) {
-    btnTempPassUp.addEventListener("click", () => {
-      if (!liveVehicleState) return;
-      const cur = liveVehicleState.climate_state?.passenger_temp_setting || 21.5;
-      updateLiveVehicleState({ climate_state: { passenger_temp_setting: Math.min(28.0, Math.round((cur + 0.5) * 10) / 10) } });
+
+  // Screen [D] Barra Infantil Button
+  const btnKids = document.getElementById("btn-dock-kids");
+  let kidsModeActive = false;
+  if (btnKids) {
+    btnKids.addEventListener("click", () => {
+      kidsModeActive = !kidsModeActive;
+      btnKids.classList.toggle("active", kidsModeActive);
+      btnKids.style.color = kidsModeActive ? "#38bdf8" : "";
     });
   }
 
@@ -1495,4 +1550,130 @@ function renderLiveVehicle(state) {
   if (acE) acE.innerText = `${(fleet.ac_charging_energy_in || 1450.4).toLocaleString()} kWh`;
   const dcE = document.getElementById("live-dc-energy");
   if (dcE) dcE.innerText = `${(fleet.dc_charging_energy_in || 420.8).toLocaleString()} kWh`;
+
+  // ========================================================
+  // Panoramic Tesla Cockpit View Rendering
+  // ========================================================
+  const panGear = document.getElementById("pan-hud-gear");
+  if (panGear) panGear.innerText = currentGear;
+
+  const panWheelGear = document.getElementById("pan-wheel-gear");
+  if (panWheelGear) panWheelGear.innerText = currentGear;
+
+  const panSpeed = document.getElementById("pan-hud-speed");
+  if (panSpeed) panSpeed.innerText = drive.speed || 0;
+
+  // Steering wheel heat state button
+  const btnPanHeat = document.getElementById("btn-pan-wheel-heat");
+  const txtPanHeat = document.getElementById("pan-wheel-heat-txt");
+  if (btnPanHeat) {
+    const isHeatOn = !!climate.steering_wheel_heater;
+    btnPanHeat.classList.toggle("active", isHeatOn);
+    if (txtPanHeat) txtPanHeat.innerText = isHeatOn ? "Volante Caliente" : "Volante Térmico";
+  }
+
+  // Cabin camera surveillance LED
+  const cabinLed = document.getElementById("cabin-cam-led");
+  if (cabinLed) {
+    if (vehicle.is_user_present || vehicle.sentry_mode) {
+      cabinLed.style.background = "var(--accent-emerald)";
+      cabinLed.style.boxShadow = "0 0 8px var(--accent-emerald)";
+    } else {
+      cabinLed.style.background = "#64748b";
+      cabinLed.style.boxShadow = "none";
+    }
+  }
+
+  // Screen [B] Navigation & Route
+  const panNavNext = document.getElementById("pan-nav-next");
+  if (panNavNext) {
+    panNavNext.innerText = drive.active_route_destination ? `En ruta hacia ${drive.active_route_destination}` : "A 350 m en Paseo de la Castellana";
+  }
+  const panNavDest = document.getElementById("pan-nav-dest-full");
+  if (panNavDest) {
+    panNavDest.innerText = drive.active_route_destination ? `Navegación GPS: ${drive.active_route_destination}` : "Navegación GPS: Standby";
+  }
+  const panNavArrivalSoc = document.getElementById("pan-nav-arrival-soc");
+  if (panNavArrivalSoc) {
+    panNavArrivalSoc.innerText = `${drive.active_route_energy_at_arrival || 64}%`;
+  }
+  const panNavDelay = document.getElementById("pan-nav-delay");
+  if (panNavDelay) {
+    panNavDelay.innerText = `+${(drive.active_route_traffic_minutes_delay || 0).toFixed(1)} min`;
+  }
+
+  // Screen [C] Climate Setpoints & Status
+  const scrDispDr = document.getElementById("scr-disp-temp-dr");
+  if (scrDispDr) scrDispDr.innerText = `${(climate.driver_temp_setting || 21.0).toFixed(1)}°`;
+  const scrDispPs = document.getElementById("scr-disp-temp-ps");
+  if (scrDispPs) scrDispPs.innerText = `${(climate.passenger_temp_setting || 21.5).toFixed(1)}°`;
+
+  const scrFlameFl = document.getElementById("scr-flame-fl");
+  if (scrFlameFl) {
+    const lvl = climate.seat_heater_left || 0;
+    scrFlameFl.innerText = lvl > 0 ? `🔥 Nivel ${lvl}` : "Desactivado";
+  }
+  const scrFlameFr = document.getElementById("scr-flame-fr");
+  if (scrFlameFr) {
+    const lvl = climate.seat_heater_right || 0;
+    scrFlameFr.innerText = lvl > 0 ? `🔥 Nivel ${lvl}` : "Desactivado";
+  }
+
+  const scrClimateTxt = document.getElementById("scr-climate-mode-txt");
+  if (scrClimateTxt) {
+    const acStatus = climate.is_climate_on ? "Automático" : "Apagado";
+    scrClimateTxt.innerText = `A/C ${acStatus} • Cabina: ${(climate.inside_temp || 21.5).toFixed(1)}°C • Exterior: ${(climate.outside_temp || 17.0).toFixed(1)}°C`;
+  }
+
+  // Continuous Ventilation Stream Animation & Passenger airflow
+  const hvacStream = document.getElementById("pan-hvac-stream");
+  if (hvacStream) {
+    hvacStream.style.display = (climate.is_climate_on && (climate.fan_status || 0) > 0) ? "flex" : "none";
+  }
+  const passAirflow = document.getElementById("pass-airflow");
+  if (passAirflow) {
+    passAirflow.style.display = (climate.is_climate_on && (climate.fan_status || 0) > 0) ? "flex" : "none";
+  }
+
+  // Qi Wireless Charging Pad
+  const phoneDr = document.getElementById("phone-driver-pct");
+  const phonePs = document.getElementById("phone-pass-pct");
+  if (phoneDr && !phoneDr.dataset.static) {
+    phoneDr.innerText = `${Math.min(100, Math.round(75 + (charge.battery_level || 78) * 0.2))}%`;
+  }
+  if (phonePs && !phonePs.dataset.static) {
+    phonePs.innerText = `${Math.min(100, Math.round(82 + (charge.battery_level || 78) * 0.15))}%`;
+  }
 }
+
+// Zero-dependency Web Audio synthesizer for Tesla horn
+function playTeslaHornSound() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc1.type = "sawtooth";
+    osc2.type = "sawtooth";
+    osc1.frequency.setValueAtTime(420, ctx.currentTime);
+    osc2.frequency.setValueAtTime(505, ctx.currentTime);
+
+    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc1.start();
+    osc2.start();
+    osc1.stop(ctx.currentTime + 0.35);
+    osc2.stop(ctx.currentTime + 0.35);
+  } catch (e) {
+    // Audio autoplay or permissions handled gracefully
+  }
+}
+

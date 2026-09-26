@@ -200,6 +200,270 @@
           </div>
         </div>
 
+        <!-- PANORAMIC TESLA CABIN COCKPIT VIEW (VISTA PANORÁMICA DE CABINA) -->
+        <div class="card cockpit-panorama-card mb-3">
+          <div class="card-header">
+            <div>
+              <h3>🖥️ Puesto de Conducción & Cockpit Interior</h3>
+              <p class="card-sub">Espejo con cámara de cabina, volante multifunción, pantalla central dividida, ventilación oculta y carga inalámbrica</p>
+            </div>
+            <div class="cockpit-header-badges">
+              <span class="badge success" id="pvr-cam-badge">👁️ Cámara Cabina: Activa</span>
+              <span class="badge info" id="pvr-view-badge">Perspectiva Conductor</span>
+            </div>
+          </div>
+
+          <div class="cockpit-panorama-body">
+            <!-- 1. Espejo Retrovisor y Cámara de Cabina (Top Windshield) -->
+            <div class="mirror-row">
+              <div class="rearview-mirror">
+                <div class="mirror-mount"></div>
+                <div class="mirror-frame">
+                  <div class="mirror-glass">
+                    <span class="mirror-text">[ Espejo Retrovisor ]</span>
+                  </div>
+                  <div class="cabin-camera-housing" title="Cámara de monitorización de cabina y atención del conductor">
+                    <span class="camera-lens">●</span>
+                    <span class="camera-label">(Cámara de Cabina)</span>
+                    <span class="camera-dot-active" id="cabin-cam-led" title="Vigilancia activa de seguridad"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Main Dashboard Level: Steering Wheel | Center Touchscreen | Passenger Dash -->
+            <div class="dashboard-level">
+              <!-- Left: Steering Wheel & Scroll Wheels -->
+              <div class="steering-column-area">
+                <div class="steering-wheel-assembly">
+                  <div class="wheel-rim">
+                    <div class="wheel-center-hub">
+                      <div class="horn-airbag" id="wheel-horn-btn" title="Claxon / Airbag (Haz clic para sonar)">
+                        <span class="tesla-logo-t">T</span>
+                        <span class="horn-label">Volante (O)</span>
+                      </div>
+                      <!-- Scroll Wheels Left & Right -->
+                      <div class="wheel-spoke left-spoke">
+                        <div class="scroll-wheel" title="Scroll Izquierdo: Volumen / Multimedia">
+                          <span class="scroll-roller"></span>
+                          <span class="scroll-label">[Scrolls]</span>
+                        </div>
+                      </div>
+                      <div class="wheel-spoke right-spoke">
+                        <div class="scroll-wheel" title="Scroll Derecho: Velocidad crucero / Autopilot">
+                          <span class="scroll-roller"></span>
+                          <span class="scroll-label">[Scrolls]</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="steering-sub-actions">
+                  <button class="btn btn-xs btn-outline" id="btn-pan-wheel-heat" title="Activar/Desactivar Calefacción de Volante">
+                    <span id="pan-wheel-heat-icon">🔥</span> <span id="pan-wheel-heat-txt">Volante Térmico</span>
+                  </button>
+                  <span class="wheel-prnd-pill" id="pan-wheel-gear">P</span>
+                </div>
+              </div>
+
+              <!-- Center: Large 15" Tesla Center Touchscreen -->
+              <div class="center-screen-area">
+                <div class="tesla-large-screen">
+                  <div class="screen-bezel">
+                    <!-- Screen Split View -->
+                    <div class="screen-display-grid">
+                      <!-- [A] Entorno y Conducción (Vehículo en 3D) -->
+                      <div class="screen-pane pane-driving" id="pane-driving-vis">
+                        <div class="pane-header">
+                          <span class="pane-tag">[A] Entorno y Conducción</span>
+                          <span class="ap-badge" id="pan-ap-badge">AUTOPILOT</span>
+                        </div>
+                        <div class="driving-3d-scene">
+                          <!-- Speed & Gear HUD -->
+                          <div class="hud-top">
+                            <span class="hud-gear" id="pan-hud-gear">P</span>
+                            <span class="hud-speed" id="pan-hud-speed">0</span>
+                            <span class="hud-unit">km/h</span>
+                            <span class="hud-limit" title="Límite detectado en vía">120</span>
+                          </div>
+
+                          <!-- 3D Vehicle Mockup and Road Lanes -->
+                          <div class="road-simulation">
+                            <div class="lane-line lane-left"></div>
+                            <div class="car-3d-silhouette" id="car-3d-model">
+                              <div class="car-headlights"></div>
+                              <div class="car-body-shape">
+                                <span class="car-badge-roof">Vehículo en 3D</span>
+                              </div>
+                              <div class="car-taillights"></div>
+                            </div>
+                            <div class="lane-line lane-right"></div>
+                          </div>
+                          <div class="pedestrian-radar" id="radar-status">
+                            <span>📡 Autopilot Visión 360° Activa</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- [B] Mapa y Destino (Navegación GPS) -->
+                      <div class="screen-pane pane-navigation" id="pane-navigation-vis">
+                        <div class="pane-header">
+                          <span class="pane-tag">[B] Mapa y Destino</span>
+                          <span class="nav-live-dot"></span>
+                        </div>
+                        <div class="nav-map-content">
+                          <div class="nav-route-card">
+                            <div class="nav-next-turn">
+                              <span class="turn-arrow">↱</span>
+                              <div class="turn-meta">
+                                <strong id="pan-nav-next">A 350 m en Paseo de la Castellana</strong>
+                                <span id="pan-nav-dest-full">Navegación GPS: Madrid Centro</span>
+                              </div>
+                            </div>
+                            <div class="nav-stats-row">
+                              <div>⏱️ Llegada: <strong id="pan-nav-eta">18 min</strong></div>
+                              <div>🔋 SoC Llegada: <strong class="text-emerald" id="pan-nav-arrival-soc">64%</strong></div>
+                              <div>⚡ Retraso: <strong id="pan-nav-delay">+4.5 min</strong></div>
+                            </div>
+                          </div>
+                          <!-- Mini map track background -->
+                          <div class="nav-map-vector">
+                            <div class="nav-map-line"></div>
+                            <div class="nav-supercharger-pin" title="Supercharger cercano en ruta">⚡ Supercharger 250 kW</div>
+                            <div class="nav-car-pin" title="Tu ubicación">📍</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- [C] Climatización y Asientos Rápidos -->
+                    <div class="screen-bottom-climate-bar">
+                      <div class="climate-driver-side">
+                        <button class="screen-btn-seat" id="scr-btn-seat-fl" title="Asiento Conductor: Clic para cambiar nivel">
+                          💺 <span id="scr-flame-fl">🔥 Nivel 2</span>
+                        </button>
+                        <div class="screen-temp-control">
+                          <button class="scr-temp-btn" id="scr-temp-dr-down">-</button>
+                          <strong id="scr-disp-temp-dr">21.0°</strong>
+                          <button class="scr-temp-btn" id="scr-temp-dr-up">+</button>
+                        </div>
+                      </div>
+
+                      <div class="climate-center-status">
+                        <span class="scr-climate-title">[C] Climatización</span>
+                        <span class="scr-climate-sub" id="scr-climate-mode-txt">A/C Automático • Cabina: 21.5°C • Exterior: 17.0°C</span>
+                      </div>
+
+                      <div class="climate-pass-side">
+                        <div class="screen-temp-control">
+                          <button class="scr-temp-btn" id="scr-temp-ps-down">-</button>
+                          <strong id="scr-disp-temp-ps">21.5°</strong>
+                          <button class="scr-temp-btn" id="scr-temp-ps-up">+</button>
+                        </div>
+                        <button class="screen-btn-seat" id="scr-btn-seat-fr" title="Asiento Acompañante: Clic para cambiar nivel">
+                          💺 <span id="scr-flame-fr">🔥 Nivel 1</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- [D] Barra Infantil (Dock de Aplicaciones de la Pantalla) -->
+                    <div class="screen-dock-bar">
+                      <span class="dock-label">[D] Barra Infantil</span>
+                      <div class="dock-icons">
+                        <button class="dock-app-btn" title="Menú del Coche" onclick="switchTab('live')">🚗 Coche</button>
+                        <button class="dock-app-btn" title="Modo Infantil / Entretenimiento" id="btn-dock-kids">👶 Infantil</button>
+                        <button class="dock-app-btn" title="Multimedia / Música">🎵 Audio</button>
+                        <button class="dock-app-btn" title="Cámaras y Centinela">📷 Cámaras</button>
+                        <button class="dock-app-btn" title="Consumo y Energía" onclick="switchTab('overview')">⚡ Energía</button>
+                        <button class="dock-app-btn" title="Viajes y Rutas" onclick="switchTab('drives')">🗺️ Viajes</button>
+                        <button class="dock-app-btn" title="Ajustes">⚙️ Ajustes</button>
+                      </div>
+                      <div class="dock-volume">
+                        <span>🔊</span>
+                        <input type="range" min="0" max="100" value="65" class="dock-volume-slider" title="Volumen Multimedia">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right: Passenger Vent & Glovebox -->
+              <div class="passenger-dash-area">
+                <div class="passenger-vent-unit">
+                  <div class="passenger-vent-housing">
+                    <span class="vent-label">Ventila Pasajero</span>
+                    <div class="vent-airflow-indicator" id="pass-airflow">
+                      <span></span><span></span><span></span>
+                    </div>
+                  </div>
+                  <div class="passenger-actions">
+                    <button class="btn btn-xs btn-outline" id="btn-open-glovebox" title="Abrir guantera electrónicamente">
+                      🗄️ Guantera <span id="txt-glovebox">[Abrir]</span>
+                    </button>
+                    <div class="pass-airbag-badge">
+                      <span>🛡️ Airbag Pasajero OK</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. Franja de Ventilación Oculta (Full Dashboard HVAC continuous band) -->
+            <div class="hidden-vent-strip-container">
+              <div class="hidden-vent-strip" title="Franja de Ventilación Oculta Tesla (Flujo aerodinámico continuo)">
+                <div class="vent-strip-track">
+                  <span class="vent-strip-title">═══════════════ [ Franja de Ventilación Oculta ] ═══════════════</span>
+                  <div class="hvac-continuous-stream active" id="pan-hvac-stream">
+                    <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. Base de Carga Inalámbrica (Wireless Phone Charging Pad) -->
+            <div class="wireless-charger-area">
+              <div class="wireless-charger-pad">
+                <div class="charger-pad-header">
+                  <span class="qi-logo">🗲</span>
+                  <strong class="pad-title">[ Base de Carga Inalámbrica ]</strong>
+                  <span class="qi-sub">Doble Base Qi de Inducción Rápida</span>
+                </div>
+                <div class="phones-charging-grid">
+                  <!-- Phone Left (Driver) -->
+                  <div class="phone-charging-slot slot-left">
+                    <div class="phone-mockup charging">
+                      <div class="phone-notch"></div>
+                      <div class="phone-screen">
+                        <span class="phone-name">Móvil Conductor</span>
+                        <div class="phone-battery-row">
+                          <span class="phone-qi-icon">⚡</span>
+                          <strong id="phone-driver-pct">88%</strong>
+                        </div>
+                        <span class="phone-charge-state">Cargando Qi</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Phone Right (Passenger) -->
+                  <div class="phone-charging-slot slot-right">
+                    <div class="phone-mockup charging">
+                      <div class="phone-notch"></div>
+                      <div class="phone-screen">
+                        <span class="phone-name">Móvil Acompañante</span>
+                        <div class="phone-battery-row">
+                          <span class="phone-qi-icon">⚡</span>
+                          <strong id="phone-pass-pct">95%</strong>
+                        </div>
+                        <span class="phone-charge-state">Cargando Qi</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Upper Grid: Cabin Interior & Exterior Closures -->
         <div class="live-grid-2col mb-3">
 

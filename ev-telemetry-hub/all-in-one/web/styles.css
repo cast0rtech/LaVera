@@ -1840,4 +1840,1000 @@ body {
   box-shadow: 0 0 12px rgba(0, 210, 255, 0.4);
 }
 
+/* ========================================================
+   PANORAMIC TESLA COCKPIT INTERIOR GRAPHIC
+   Front-view automotive dashboard matching exact ASCII spec
+   ======================================================== */
+.cockpit-panorama-card {
+  background: radial-gradient(ellipse at 50% 0%, #151e2f 0%, #0a0e17 85%);
+  border: 1px solid rgba(0, 210, 255, 0.22);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.cockpit-header-badges {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.cockpit-panorama-body {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 10px 4px;
+}
+
+/* 1. Espejo Retrovisor y Cámara de Cabina */
+.mirror-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.rearview-mirror {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.mirror-mount {
+  width: 24px;
+  height: 14px;
+  background: linear-gradient(180deg, #101622, #1b2434);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: none;
+  border-radius: 3px 3px 0 0;
+}
+
+.mirror-frame {
+  background: #090e17;
+  border: 1.5px solid rgba(0, 210, 255, 0.35);
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7), 0 0 14px rgba(0, 210, 255, 0.12);
+  padding: 6px 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 320px;
+}
+
+.mirror-glass {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(0, 210, 255, 0.05) 100%);
+  padding: 6px 18px;
+  border-radius: 8px;
+  width: 100%;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mirror-text {
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  font-size: 0.86rem;
+  letter-spacing: 1px;
+  color: #cde2ff;
+}
+
+.cabin-camera-housing {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.camera-lens {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #000;
+  border: 1.5px solid #38465d;
+  display: inline-block;
+  line-height: 0;
+}
+
+.camera-label {
+  font-weight: 600;
+  color: #8da4be;
+}
+
+.camera-dot-active {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-emerald);
+  box-shadow: 0 0 8px var(--accent-emerald);
+  animation: camPulse 1.8s infinite ease-in-out;
+}
+
+@keyframes camPulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.15); box-shadow: 0 0 12px var(--accent-emerald); }
+}
+
+/* 2. Main Dashboard Level: Steering | Screen | Passenger */
+.dashboard-level {
+  display: grid;
+  grid-template-columns: 220px 1fr 200px;
+  gap: 20px;
+  align-items: center;
+}
+
+/* Left: Steering Wheel Column */
+.steering-column-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.steering-wheel-assembly {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wheel-rim {
+  width: 185px;
+  height: 185px;
+  border-radius: 50%;
+  border: 13px solid #1c2637;
+  background: radial-gradient(circle, #0c121d 40%, #151e2d 100%);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.9), 0 8px 24px rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: transform 0.25s ease;
+}
+
+.wheel-center-hub {
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  background: linear-gradient(150deg, #172233 0%, #0d131e 100%);
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  user-select: none;
+}
+
+.horn-airbag {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  transition: all 0.15s ease;
+}
+
+.horn-airbag:hover {
+  transform: scale(1.05);
+}
+
+.horn-airbag.horn-active {
+  box-shadow: 0 0 16px rgba(0, 210, 255, 0.8);
+  background: rgba(0, 210, 255, 0.2);
+}
+
+.tesla-logo-t {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #e2e8f0;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+  line-height: 1;
+}
+
+.horn-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+}
+
+/* Spokes & Scrolls */
+.wheel-spoke {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+}
+
+.left-spoke {
+  left: -28px;
+}
+
+.right-spoke {
+  right: -28px;
+}
+
+.scroll-wheel {
+  width: 15px;
+  height: 28px;
+  background: linear-gradient(180deg, #2a374c, #141b27);
+  border: 1.5px solid #4a5d7c;
+  border-radius: 4px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8), 0 2px 6px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.scroll-wheel:hover {
+  border-color: var(--accent-cyan);
+}
+
+.scroll-label {
+  position: absolute;
+  bottom: -16px;
+  font-size: 0.58rem;
+  color: #718096;
+  font-family: var(--font-mono, monospace);
+  white-space: nowrap;
+}
+
+.steering-sub-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wheel-prnd-pill {
+  background: rgba(0, 210, 255, 0.15);
+  border: 1px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+  font-weight: 800;
+  font-size: 0.85rem;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Center: Large 15" Tesla Screen */
+.center-screen-area {
+  display: flex;
+  flex-direction: column;
+}
+
+.tesla-large-screen {
+  background: #05080e;
+  border: 3px solid #202b3c;
+  border-radius: 12px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(0, 210, 255, 0.15);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.screen-bezel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.screen-display-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 260px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.screen-pane {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.pane-driving {
+  background: linear-gradient(180deg, #090e17 0%, #06090f 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pane-navigation {
+  background: radial-gradient(ellipse at 80% 20%, #101c2e 0%, #080d16 100%);
+}
+
+.pane-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.pane-tag {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #7dd3fc;
+  font-family: var(--font-mono, monospace);
+}
+
+.ap-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(0, 210, 255, 0.15);
+  border: 1px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+  letter-spacing: 0.5px;
+}
+
+/* Driving 3D Scene in Screen [A] */
+.driving-3d-scene {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  position: relative;
+  justify-content: space-between;
+}
+
+.hud-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.hud-gear {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: #cbd5e1;
+}
+
+.hud-speed {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.hud-unit {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.hud-limit {
+  margin-left: auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid #ef4444;
+  background: #ffffff;
+  color: #000000;
+  font-weight: 800;
+  font-size: 0.68rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.road-simulation {
+  height: 140px;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  perspective: 250px;
+  overflow: hidden;
+  margin: 6px 0;
+}
+
+.lane-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0px, rgba(255, 255, 255, 0.4) 20px, transparent 20px, transparent 40px);
+}
+
+.lane-left {
+  left: 20%;
+  transform: rotate(18deg);
+}
+
+.lane-right {
+  right: 20%;
+  transform: rotate(-18deg);
+}
+
+.car-3d-silhouette {
+  width: 78px;
+  height: 100px;
+  background: linear-gradient(180deg, #1e293b, #0f172a);
+  border: 1.5px solid rgba(0, 210, 255, 0.4);
+  border-radius: 18px 18px 10px 10px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.8), 0 0 12px rgba(0, 210, 255, 0.15);
+  z-index: 2;
+}
+
+.car-headlights {
+  position: absolute;
+  top: 3px;
+  width: 90%;
+  display: flex;
+  justify-content: space-between;
+}
+
+.car-headlights::before,
+.car-headlights::after {
+  content: "";
+  width: 10px;
+  height: 4px;
+  background: #67e8f9;
+  border-radius: 2px;
+  box-shadow: 0 -4px 10px #67e8f9;
+}
+
+.car-taillights {
+  position: absolute;
+  bottom: 4px;
+  width: 86%;
+  display: flex;
+  justify-content: space-between;
+}
+
+.car-taillights::before,
+.car-taillights::after {
+  content: "";
+  width: 12px;
+  height: 4px;
+  background: #ef4444;
+  border-radius: 2px;
+  box-shadow: 0 4px 8px #ef4444;
+}
+
+.car-badge-roof {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.pedestrian-radar {
+  font-size: 0.68rem;
+  color: #38bdf8;
+  text-align: center;
+  padding: 4px;
+  background: rgba(56, 189, 248, 0.08);
+  border-radius: 4px;
+}
+
+/* Screen [B]: Map & Navigation */
+.nav-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-emerald);
+  box-shadow: 0 0 6px var(--accent-emerald);
+}
+
+.nav-map-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  justify-content: space-between;
+}
+
+.nav-route-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.nav-next-turn {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.turn-arrow {
+  font-size: 1.4rem;
+  color: var(--accent-cyan);
+  font-weight: 900;
+}
+
+.turn-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.turn-meta strong {
+  font-size: 0.78rem;
+  color: #ffffff;
+}
+
+.turn-meta span {
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+.nav-stats-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.nav-map-vector {
+  height: 90px;
+  background: linear-gradient(135deg, #0b1420 0%, #06090e 100%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-map-line {
+  position: absolute;
+  width: 140%;
+  height: 4px;
+  background: var(--accent-cyan);
+  box-shadow: 0 0 10px var(--accent-cyan);
+  transform: rotate(-16deg);
+}
+
+.nav-supercharger-pin {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 0.65rem;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid #ef4444;
+  color: #fca5a5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.nav-car-pin {
+  position: absolute;
+  bottom: 12px;
+  left: 24px;
+  font-size: 1rem;
+  filter: drop-shadow(0 0 6px rgba(0, 210, 255, 0.8));
+}
+
+/* Screen [C]: Climatización Bar */
+.screen-bottom-climate-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #070c14;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.climate-driver-side,
+.climate-pass-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.screen-btn-seat {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.screen-btn-seat:hover {
+  border-color: var(--accent-orange, #f97316);
+  color: #ffffff;
+}
+
+.screen-temp-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.screen-temp-control strong {
+  font-size: 0.85rem;
+  color: var(--accent-cyan);
+  min-width: 38px;
+  text-align: center;
+}
+
+.scr-temp-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.scr-temp-btn:hover {
+  color: #ffffff;
+}
+
+.climate-center-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.scr-climate-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #94a3b8;
+  font-family: var(--font-mono, monospace);
+}
+
+.scr-climate-sub {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+/* Screen [D]: Barra Infantil / Dock */
+.screen-dock-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: #04060a;
+}
+
+.dock-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #7dd3fc;
+  font-family: var(--font-mono, monospace);
+  white-space: nowrap;
+}
+
+.dock-icons {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dock-app-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dock-app-btn:hover {
+  background: rgba(0, 210, 255, 0.12);
+  color: #ffffff;
+  border-color: rgba(0, 210, 255, 0.3);
+}
+
+.dock-volume {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+}
+
+.dock-volume-slider {
+  width: 60px;
+  height: 4px;
+  accent-color: var(--accent-cyan);
+}
+
+/* Right: Passenger Dash Area */
+.passenger-dash-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.passenger-vent-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.passenger-vent-housing {
+  width: 160px;
+  height: 80px;
+  background: linear-gradient(145deg, #151e2d, #0d121c);
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.8), 0 6px 18px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+}
+
+.vent-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #cbd5e1;
+  text-align: center;
+}
+
+.vent-airflow-indicator {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  height: 14px;
+}
+
+.vent-airflow-indicator span {
+  width: 4px;
+  height: 100%;
+  background: var(--accent-cyan);
+  border-radius: 2px;
+  animation: airflow 1.2s ease-in-out infinite;
+}
+
+.vent-airflow-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.vent-airflow-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+.passenger-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.pass-airbag-badge {
+  font-size: 0.68rem;
+  color: #94a3b8;
+}
+
+/* 3. Franja de Ventilación Oculta (Full Dashboard HVAC Strip) */
+.hidden-vent-strip-container {
+  width: 100%;
+  padding: 4px 0;
+}
+
+.hidden-vent-strip {
+  width: 100%;
+  background: #06090e;
+  border-top: 1.5px solid rgba(0, 210, 255, 0.3);
+  border-bottom: 1.5px solid rgba(0, 210, 255, 0.3);
+  box-shadow: 0 0 14px rgba(0, 210, 255, 0.1);
+  padding: 8px 12px;
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.vent-strip-track {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+
+.vent-strip-title {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--accent-cyan);
+  text-align: center;
+  white-space: nowrap;
+  text-shadow: 0 0 8px rgba(0, 210, 255, 0.4);
+}
+
+.hvac-continuous-stream {
+  width: 100%;
+  height: 6px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  position: relative;
+}
+
+.hvac-continuous-stream i {
+  display: block;
+  width: 30px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+  border-radius: 1px;
+  animation: ventStream 2.5s infinite linear;
+}
+
+.hvac-continuous-stream i:nth-child(odd) {
+  animation-duration: 2s;
+  background: linear-gradient(90deg, transparent, #38bdf8, transparent);
+}
+
+@keyframes ventStream {
+  0% { transform: translateX(-40px); opacity: 0; }
+  50% { opacity: 0.8; }
+  100% { transform: translateX(40px); opacity: 0; }
+}
+
+/* 4. Base de Carga Inalámbrica (Wireless Phone Charging Pad) */
+.wireless-charger-area {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.wireless-charger-pad {
+  background: linear-gradient(180deg, #111827 0%, #0a0e17 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+  padding: 12px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 480px;
+}
+
+.charger-pad-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono, monospace);
+}
+
+.qi-logo {
+  font-size: 1.1rem;
+  color: var(--accent-emerald);
+}
+
+.pad-title {
+  font-size: 0.86rem;
+  color: #e2e8f0;
+  letter-spacing: 0.5px;
+}
+
+.qi-sub {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.phones-charging-grid {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  width: 100%;
+}
+
+.phone-charging-slot {
+  display: flex;
+  justify-content: center;
+}
+
+.phone-mockup {
+  width: 120px;
+  height: 80px;
+  background: #0f172a;
+  border: 2px solid rgba(0, 230, 118, 0.35);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 10px rgba(0, 230, 118, 0.15);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.phone-mockup:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-emerald);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6), 0 0 14px rgba(0, 230, 118, 0.3);
+}
+
+.phone-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.phone-name {
+  font-size: 0.64rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.phone-battery-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.phone-qi-icon {
+  font-size: 0.75rem;
+  color: var(--accent-emerald);
+}
+
+.phone-battery-row strong {
+  font-size: 0.95rem;
+  color: #ffffff;
+}
+
+.phone-charge-state {
+  font-size: 0.6rem;
+  color: var(--accent-emerald);
+  font-weight: 700;
+}
+
+/* Responsive Breakpoints for Cockpit */
+@media (max-width: 992px) {
+  .dashboard-level {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+  .wireless-charger-pad {
+    min-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .screen-display-grid {
+    grid-template-columns: 1fr;
+  }
+  .dock-icons {
+    justify-content: center;
+  }
+  .rearview-mirror, .mirror-frame {
+    min-width: 90%;
+  }
+}
+
+
 

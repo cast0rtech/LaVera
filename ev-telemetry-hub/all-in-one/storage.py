@@ -296,18 +296,37 @@ class OfflineStorage:
             return []
         conn = self._get_conn()
         try:
+            s_norm = str(started_at).replace("T", " ").rstrip("Z")[:19]
+            e_norm = str(ended_at or started_at).replace("T", " ").rstrip("Z")[:19]
             cur = conn.cursor()
             cur.execute("""
                 SELECT timestamp, latitude, longitude, speed_kmh, power_kw, battery_temp_c, soc, odometer_km
                 FROM live_telemetry
-                WHERE vin = ? AND timestamp >= ? AND timestamp <= ?
+                WHERE vin = ?
+                  AND replace(replace(timestamp, 'T', ' '), 'Z', '') >= ?
+                  AND replace(replace(timestamp, 'T', ' '), 'Z', '') <= ?
                   AND latitude IS NOT NULL AND longitude IS NOT NULL
                   AND (latitude != 0.0 OR longitude != 0.0)
                 ORDER BY timestamp ASC
-            """, (vin, started_at, ended_at or started_at))
+            """, (vin, s_norm, e_norm))
             return [dict(r) for r in cur.fetchall()]
         except Exception:
             return []
+        finally:
+            conn.close()
+
+    def update_drive_raw_json(self, drive_id: Any, raw_json: str) -> bool:
+        """Updates the raw_json payload of a drive record (e.g. to cache high-resolution road geometry)."""
+        if not drive_id:
+            return False
+        conn = self._get_conn()
+        try:
+            cur = conn.cursor()
+            cur.execute("UPDATE drives SET raw_json = ? WHERE id = ?", (raw_json, drive_id))
+            conn.commit()
+            return True
+        except Exception:
+            return False
         finally:
             conn.close()
 

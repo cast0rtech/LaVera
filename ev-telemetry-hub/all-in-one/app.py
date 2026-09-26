@@ -5,17 +5,20 @@ and offline interactive dashboard.
 Runs with standard Python library (zero mandatory external pip dependencies).
 """
 
+import datetime
 import email
 import io
 import json
+import math
 import mimetypes
 import os
 import re
 import sys
 import urllib.parse
+import urllib.request
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 if sys.platform.startswith("win"):
     try:
@@ -192,12 +195,135 @@ def _parse_coord_string(s):
     return None
 
 
+_ROUTE_GEOMETRY_CACHE: Dict[int, List[Dict[str, Any]]] = {}
+
+
+def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculates spherical surface distance in meters between two coordinates."""
+    R = 6371000.0
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+    a = math.sin(delta_phi / 2.0)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0)**2
+    c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
+    return R * c
+
+
+def parse_iso_ts(ts_str: Any) -> datetime.datetime:
+    """Parses arbitrary ISO 8601 or SQLite datetime strings to UTC datetime."""
+    if not ts_str:
+        return datetime.datetime.now(datetime.timezone.utc)
+    s = str(ts_str).strip().replace("Z", "+00:00")
+    if "T" in s:
+        try:
+            return datetime.datetime.fromisoformat(s)
+        except Exception:
+            pass
+    for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S%z", "%Y-%m-%dT%H:%M:%S"]:
+        try:
+            return datetime.datetime.strptime(s, fmt).replace(tzinfo=datetime.timezone.utc)
+        except Exception:
+            pass
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def fetch_roadway_trackpoints(start_c: Tuple[float, float], end_c: Tuple[float, float],
+                              started_at_str: str, ended_at_str: str,
+                              distance_km: float = 0.0) -> Tuple[List[Dict[str, Any]], Optional[List[List[float]]]]:
+    """
+    Constructs high-precision roadway coordinates and timestamps between start and end.
+    Uses OSRM driving engine when network is reachable, with smooth geodesic arc fallback.
+    Returns: (trackpoints, raw_coordinate_list)
+    """
+    lat1, lon1 = start_c
+    lat2, lon2 = end_c
+    start_dt = parse_iso_ts(started_at_str)
+    end_dt = parse_iso_ts(ended_at_str)
+    total_seconds = max(1.0, (end_dt - start_dt).total_seconds())
+    direct_m = haversine_m(lat1, lon1, lat2, lon2)
+
+    if direct_m < 5.0:
+        t_start = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        t_end = end_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return [
+            {"lat": round(lat1, 6), "lon": round(lon1, 6), "time": t_start, "speed": 0.0, "ele": None},
+            {"lat": round(lat2, 6), "lon": round(lon2, 6), "time": t_end, "speed": 0.0, "ele": None}
+        ], None
+
+    # Try OSRM road routing engine
+    try:
+        url = f"https://router.project-osrm.org/route/v1/driving/{lon1:.6f},{lat1:.6f};{lon2:.6f},{lat2:.6f}?overview=full&geometries=geojson"
+        req = urllib.request.Request(url, headers={"User-Agent": "LaVera-EV-Hub/1.2 (https://github.com/cast0rtech/LaVera)"})
+        with urllib.request.urlopen(req, timeout=3.5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data.get("routes") and len(data["routes"]) > 0:
+                coords = data["routes"][0]["geometry"]["coordinates"]
+                if len(coords) >= 2:
+                    cum_dists = [0.0]
+                    for i in range(1, len(coords)):
+                        d = haversine_m(coords[i-1][1], coords[i-1][0], coords[i][1], coords[i][0])
+                        cum_dists.append(cum_dists[-1] + d)
+                    total_m = cum_dists[-1] if cum_dists[-1] > 0 else 1.0
+
+                    pts = []
+                    for i, (lon, lat) in enumerate(coords):
+                        frac = cum_dists[i] / total_m
+                        pt_time = start_dt + datetime.timedelta(seconds=frac * total_seconds)
+                        if i > 0:
+                            seg_d = cum_dists[i] - cum_dists[i-1]
+                            seg_t = max(0.1, total_seconds * (cum_dists[i] - cum_dists[i-1]) / max(total_m, 1.0))
+                            speed_mps = round(seg_d / seg_t, 2)
+                        else:
+                            speed_mps = 0.0
+                        pts.append({
+                            "lat": round(lat, 6),
+                            "lon": round(lon, 6),
+                            "time": pt_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                            "speed": speed_mps,
+                            "ele": None
+                        })
+                    return pts, coords
+    except Exception:
+        pass
+
+    # Fallback: high-density interpolation along direct trajectory
+    step_count = max(10, min(100, int(direct_m / 100.0)))
+    pts = []
+    coords = []
+    for i in range(step_count + 1):
+        frac = i / float(step_count)
+        lat = lat1 + (lat2 - lat1) * frac
+        lon = lon1 + (lon2 - lon1) * frac
+        pt_time = start_dt + datetime.timedelta(seconds=frac * total_seconds)
+        speed_mps = round((direct_m / total_seconds), 2) if total_seconds > 0 else 0.0
+        coords.append([round(lon, 6), round(lat, 6)])
+        pts.append({
+            "lat": round(lat, 6),
+            "lon": round(lon, 6),
+            "time": pt_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "speed": speed_mps,
+            "ele": None
+        })
+    return pts, coords
+
+
 def extract_drive_trackpoints(drive: dict, storage=None):
     """
     Extracts all real GPS points and start/destination waypoints for a drive.
     Returns: (trackpoints, start_waypoint, end_waypoint)
     Each trackpoint dict contains: lat, lon, time, speed (m/s), ele (m).
     """
+    drive_id = drive.get("id")
+    start_loc_name = str(drive.get("start_location") or "Origen").strip()
+    end_loc_name = str(drive.get("end_location") or "Destino").strip()
+
+    if drive_id and drive_id in _ROUTE_GEOMETRY_CACHE:
+        pts = _ROUTE_GEOMETRY_CACHE[drive_id]
+        start_wpt = {"lat": pts[0]["lat"], "lon": pts[0]["lon"], "name": start_loc_name, "time": pts[0]["time"]}
+        end_wpt = {"lat": pts[-1]["lat"], "lon": pts[-1]["lon"], "name": end_loc_name, "time": pts[-1]["time"]}
+        return pts, start_wpt, end_wpt
+
     pts = []
     vin = drive.get("vin")
     started_at = drive.get("started_at")
@@ -229,7 +355,36 @@ def extract_drive_trackpoints(drive: dict, storage=None):
     elif isinstance(raw_data, dict):
         raw_dict = raw_data
 
-    # 2. Check waypoints or path from raw_json
+    # 2. Check cached route_geometry in raw_json
+    if not pts and raw_dict.get("route_geometry") and isinstance(raw_dict["route_geometry"], list) and len(raw_dict["route_geometry"]) >= 2:
+        coords = raw_dict["route_geometry"]
+        start_dt = parse_iso_ts(started_at)
+        end_dt = parse_iso_ts(ended_at)
+        total_seconds = max(1.0, (end_dt - start_dt).total_seconds())
+        cum_dists = [0.0]
+        for i in range(1, len(coords)):
+            d = haversine_m(coords[i-1][1], coords[i-1][0], coords[i][1], coords[i][0])
+            cum_dists.append(cum_dists[-1] + d)
+        total_m = cum_dists[-1] if cum_dists[-1] > 0 else 1.0
+
+        for i, (lon, lat) in enumerate(coords):
+            frac = cum_dists[i] / total_m
+            pt_time = start_dt + datetime.timedelta(seconds=frac * total_seconds)
+            if i > 0:
+                seg_d = cum_dists[i] - cum_dists[i-1]
+                seg_t = max(0.1, total_seconds * (cum_dists[i] - cum_dists[i-1]) / max(total_m, 1.0))
+                speed_mps = round(seg_d / seg_t, 2)
+            else:
+                speed_mps = 0.0
+            pts.append({
+                "lat": round(lat, 6),
+                "lon": round(lon, 6),
+                "time": pt_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "speed": speed_mps,
+                "ele": None
+            })
+
+    # 3. Check waypoints or path from raw_json
     if not pts and raw_dict:
         for key in ["waypoints", "path", "route", "locations", "coordinates", "coords", "points"]:
             items = raw_dict.get(key)
@@ -267,7 +422,7 @@ def extract_drive_trackpoints(drive: dict, storage=None):
                 if pts:
                     break
 
-    # 3. Resolve start and end coordinates
+    # 4. Resolve start and end coordinates
     start_c = (
         _parse_coord(drive.get("start_latitude"), drive.get("start_longitude")) or
         _parse_coord(raw_dict.get("starting_latitude"), raw_dict.get("starting_longitude")) or
@@ -284,8 +439,23 @@ def extract_drive_trackpoints(drive: dict, storage=None):
         _parse_coord_string(drive.get("end_location"))
     )
 
-    start_loc_name = str(drive.get("start_location") or "Origen").strip()
-    end_loc_name = str(drive.get("end_location") or "Destino").strip()
+    # 5. If only start and end coordinates exist, fetch high-precision roadway geometry
+    if not pts:
+        if start_c and end_c:
+            pts, coords = fetch_roadway_trackpoints(
+                start_c, end_c, started_at, ended_at,
+                distance_km=float(drive.get("distance_km") or 0.0)
+            )
+            if coords and storage and drive_id and hasattr(storage, "update_drive_raw_json"):
+                try:
+                    raw_dict["route_geometry"] = coords
+                    storage.update_drive_raw_json(drive_id, json.dumps(raw_dict))
+                except Exception:
+                    pass
+        elif start_c:
+            pts.append({"lat": start_c[0], "lon": start_c[1], "time": started_at, "speed": 0.0, "ele": None})
+        elif end_c:
+            pts.append({"lat": end_c[0], "lon": end_c[1], "time": ended_at, "speed": 0.0, "ele": None})
 
     start_wpt = None
     if start_c:
@@ -299,15 +469,8 @@ def extract_drive_trackpoints(drive: dict, storage=None):
     elif pts:
         end_wpt = {"lat": pts[-1]["lat"], "lon": pts[-1]["lon"], "name": end_loc_name, "time": pts[-1]["time"]}
 
-    # If no high-frequency points exist but start and end coordinates are known, construct segment
-    if not pts:
-        if start_c and end_c:
-            pts.append({"lat": start_c[0], "lon": start_c[1], "time": started_at, "speed": None, "ele": None})
-            pts.append({"lat": end_c[0], "lon": end_c[1], "time": ended_at, "speed": None, "ele": None})
-        elif start_c:
-            pts.append({"lat": start_c[0], "lon": start_c[1], "time": started_at, "speed": None, "ele": None})
-        elif end_c:
-            pts.append({"lat": end_c[0], "lon": end_c[1], "time": ended_at, "speed": None, "ele": None})
+    if drive_id and pts:
+        _ROUTE_GEOMETRY_CACHE[drive_id] = pts
 
     return pts, start_wpt, end_wpt
 

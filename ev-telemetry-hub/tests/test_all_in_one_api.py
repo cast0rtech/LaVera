@@ -323,6 +323,53 @@ class TestAllInOneAPI(unittest.TestCase):
             self.assertEqual(res["state"]["vehicle_state"]["locked"], False)
             self.assertEqual(res["state"]["vehicle_state"]["ft"], 1)
 
+    def test_14_export_drive_gpx_and_kml(self):
+        # Insert a realistic drive session
+        app_module.storage.writer.write_drives([{
+            "vin": "TESLA_EXPORT_TEST",
+            "started_at": "2026-06-18 08:00:00",
+            "ended_at": "2026-06-18 08:30:00",
+            "distance_km": 15.4,
+            "duration_min": 30.0,
+            "start_battery": 80,
+            "end_battery": 72,
+            "energy_kwh": 2.8,
+            "efficiency_wh_km": 160.0,
+            "start_location": "Zurich",
+            "end_location": "Wallisellen",
+            "start_latitude": 47.41224,
+            "start_longitude": 8.561003,
+            "end_latitude": 47.408546,
+            "end_longitude": 8.597435,
+            "raw_json": json.dumps({"source": "unit_test"})
+        }])
+
+        drives_res = app_module.storage.get_drives(return_dict=True)
+        drive_id = drives_res["items"][0]["id"]
+
+        # Test GPX Export
+        url_gpx = f"http://127.0.0.1:{self.port}/api/drives/export?id={drive_id}&format=gpx"
+        with urllib.request.urlopen(url_gpx, timeout=5) as resp:
+            self.assertEqual(resp.status, 200)
+            self.assertIn("application/gpx+xml", resp.headers.get("Content-Type", ""))
+            content = resp.read().decode("utf-8")
+            self.assertIn('<gpx version="1.1"', content)
+            self.assertIn("<trk>", content)
+            self.assertIn("<trkpt", content)
+            self.assertIn("<wpt", content)
+            self.assertIn("Wallisellen", content)
+
+        # Test KML Export
+        url_kml = f"http://127.0.0.1:{self.port}/api/drives/export?id={drive_id}&format=kml"
+        with urllib.request.urlopen(url_kml, timeout=5) as resp:
+            self.assertEqual(resp.status, 200)
+            self.assertIn("application/vnd.google-earth.kml+xml", resp.headers.get("Content-Type", ""))
+            content = resp.read().decode("utf-8")
+            self.assertIn("<kml", content)
+            self.assertIn("<LineString>", content)
+            self.assertIn("<coordinates>", content)
+            self.assertIn("Wallisellen", content)
+
 
 if __name__ == "__main__":
     unittest.main()
